@@ -146,7 +146,27 @@ INSERT INTO `nostalgia_ambient_chat` (`zone_id`, `channel_name`, `sender_guid`, 
 (85, 'General', 900138, 'Modermaus', 5, 1, 5, 'heal fuer strat oder scholo da'),
 (400, 'General', 900139, 'Mondsichel', 6, 1, 3, 'maraudon 10er princess run?'),
 (331, 'General', 900140, 'Hexhex', 8, 1, 7, 'bwl attunement helfe gern'),
-(1637, 'General', 900141, 'Blutbrot', 2, 0, 9, 'naxx attunement noch jemand?');
+(1637, 'General', 900141, 'Blutbrot', 2, 0, 9, 'naxx attunement noch jemand?'),
+(1519, 'General', 900142, 'Goldgier', 1, 0, 4, 'wts teufelssauriergamaschen boe 85g kein lowball pls'),
+(1637, 'General', 900143, 'Boebert', 2, 0, 1, 'kaufe arkanitbarren zahle gut brauche noch 6'),
+(1519, 'General', 900144, 'Nadelhexe', 4, 1, 8, 'suche schneider fuer wahrer glaubensweste mats sind da'),
+(1637, 'General', 900145, 'Alchemix', 5, 0, 9, 'wts grosse feuerschutztrank stacks fuer mc'),
+(1519, 'General', 900146, 'Siedler', 3, 0, 1, 'kaufe traumblatt sonnengras und goldklee alles nehmen'),
+(1637, 'General', 900147, 'Arkanopa', 2, 0, 8, 'wts krolklinge boe 120g /w offers'),
+(1519, 'General', 900148, 'Kesselmaus', 1, 1, 5, 'alchi 300 hier elixier der riesen macht mats da'),
+(1637, 'General', 900149, 'Lederlutz', 8, 0, 3, 'suche lederer fuer teufelssaurier set zahle trinkgeld'),
+(1519, 'General', 900150, 'Stofftier', 7, 1, 9, 'wts mondstoff cd ready und runenstofftaschen'),
+(1637, 'General', 900151, 'Auktionshai', 5, 0, 4, 'kaufe elementarfeuer und herz der wildnis'),
+(1519, 'General', 900152, 'Klingenbob', 3, 0, 1, 'wts scharfer wetzstein und schwere panzerkits stackweise'),
+(1637, 'General', 900153, 'Donnerfred', 2, 0, 7, 'HAT JEMAND THUNDERFURY GESAGT???'),
+(1519, 'General', 900154, 'Windjunge', 1, 0, 2, 'did someone say thunderfury xD'),
+(1637, 'General', 900155, 'Baronbank', 5, 1, 9, 'wts rezept: grosse feuerschutztrank nur 15g'),
+(1519, 'General', 900156, 'Rezeptopa', 1, 0, 11, 'suche verzauberer 300 fuer crusader mats + trinkgeld'),
+(1637, 'General', 900157, 'Flinkfinger', 4, 1, 4, 'wts boe epics /w was ihr sucht vielleicht hab ichs'),
+(1519, 'General', 900158, 'Eberzahn', 2, 0, 1, 'kaufe thoriumbarren und arkanes kristall zahle fair'),
+(1637, 'General', 900159, 'Tranktaxi', 8, 1, 8, 'port zu allen hauptstaedten gegen kleine spende'),
+(1519, 'General', 900160, 'Manahexe', 5, 1, 5, 'wts mana pot und major healing pot 5er stacks'),
+(1637, 'General', 900161, 'Knochenkrug', 2, 0, 9, 'wer verkauft mir nen black lotus bitte /w');
 
 -- Messages are shown through the Vanilla client's automatically joined /1 General channel.
 UPDATE `nostalgia_ambient_chat` SET `channel_name` = 'General';
@@ -174,5 +194,6 @@ SET `guild_name` = CASE
     WHEN `sender_guid` BETWEEN 900111 AND 900115 THEN 'Kessel und Klinge'
     WHEN `sender_guid` BETWEEN 900116 AND 900120 THEN 'Rend oder Raus'
     WHEN `sender_guid` BETWEEN 900121 AND 900141 THEN 'Horde Feierabend'
+    WHEN `sender_guid` BETWEEN 900142 AND 900161 THEN 'Handelshaus Helden'
     ELSE 'Nostalgia'
 END;
