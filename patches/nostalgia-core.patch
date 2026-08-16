@@ -2327,7 +2327,7 @@ index 6b0be9092..8c45f5404 100644
      sAccountMgr.Update(diff);
  
 diff --git a/src/mangosd/mangosd.conf.dist.in b/src/mangosd/mangosd.conf.dist.in
-index 377024547..854aafedc 100644
+index 377024547..71e052460 100644
 --- a/src/mangosd/mangosd.conf.dist.in
 +++ b/src/mangosd/mangosd.conf.dist.in
 @@ -1160,6 +1160,26 @@ PetDefaultLoyalty = 1
@@ -2411,9 +2411,9 @@ index 377024547..854aafedc 100644
  
 +Nostalgia.OutdoorRivals.Enable = 0
 +Nostalgia.OutdoorRivals.Chance = 25
-+Nostalgia.OutdoorRivals.EnemyChance = 65
-+Nostalgia.OutdoorRivals.CheckSeconds = 300
-+Nostalgia.OutdoorRivals.CooldownSeconds = 1800
++Nostalgia.OutdoorRivals.EnemyChance = 70
++Nostalgia.OutdoorRivals.CheckSeconds = 180
++Nostalgia.OutdoorRivals.CooldownSeconds = 1200
 +Nostalgia.OutdoorRivals.MinLevel = 20
 +Nostalgia.OutdoorRivals.DurationSeconds = 180
 +Nostalgia.OutdoorRivals.MaxActive = 1
