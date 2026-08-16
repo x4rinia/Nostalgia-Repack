@@ -1215,7 +1215,7 @@ index ca773b3ce..92628f5ef 100644
      {
          sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "PlayerBotAI::SpawnNewPlayer: Map (%u, %u) not found!", mapId, instanceId);
 diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
-index 4475bdc50..385f61ab9 100644
+index 4475bdc50..f3876751a 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.cpp
 +++ b/src/game/PlayerBots/PlayerBotMgr.cpp
 @@ -7,6 +7,7 @@
@@ -1396,7 +1396,7 @@ index 4475bdc50..385f61ab9 100644
  bool PlayerBotMgr::AddBot(uint32 playerGUID, bool chatBot, PlayerBotAI* pAI)
  {
      uint32 accountId = 0;
-@@ -623,6 +718,300 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
+@@ -623,6 +718,301 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
      }
  }
  
@@ -1612,6 +1612,7 @@ index 4475bdc50..385f61ab9 100644
 +    };
 +    std::vector<uint32> availableClasses = { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_DRUID };
 +    uint32 const instanceId = sMapMgr.GetContinentInstanceId(0, positions[0][0], positions[0][1]);
++    uint8 const arenaRivalLevel = uint8(sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL));
 +
 +    for (uint32 i = 0; i < 3 && !availableClasses.empty(); ++i)
 +    {
@@ -1624,7 +1625,7 @@ index 4475bdc50..385f61ab9 100644
 +        if (!botRace)
 +            continue;
 +
-+        BattleBotAI* ai = new BattleBotAI(botRace, botClass, MAX_LEVEL, 0, instanceId, positions[i][0], positions[i][1], positions[i][2], positions[i][3],
++        BattleBotAI* ai = new BattleBotAI(botRace, botClass, arenaRivalLevel, 0, instanceId, positions[i][0], positions[i][1], positions[i][2], positions[i][3],
 +            BATTLEGROUND_QUEUE_NONE, true, false, ObjectGuid(), 0, true);
 +        if (!AddBot(ai))
 +            delete ai;
@@ -1697,7 +1698,7 @@ index 4475bdc50..385f61ab9 100644
  void PlayerBotMgr::DeleteBattleBots()
  {
      for (auto const& itr : m_bots)
-@@ -2038,3 +2427,63 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
+@@ -2038,3 +2428,63 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
      PSendSysMessage("Showing %u paths for battleground.", id);
      return true;
  }
