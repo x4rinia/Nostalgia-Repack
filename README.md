@@ -6,6 +6,8 @@
 
 Nostalgia is a small-group Vanilla server project based on [vMaNGOS Core](https://github.com/vmangos/core). It keeps Naxxramas as endgame content, adds player-accessible PartyBots and a nostalgic fake `/1` chat, and includes a lightweight local account and character-management page.
 
+**Language:** Nostalgia is primarily a German-language project. Its ambient/fake chat, in-game messages, website and repack guidance are therefore mainly German, with familiar Vanilla abbreviations such as `lfm`, `wts` and `boe` intentionally retained.
+
 This repository is a **build package**, not a World of Warcraft distribution. It intentionally contains no game client, MPQ files, DBC/maps, extracted game data, database dumps, player data, logs, compiled executables, Apache/PHP runtime or MariaDB runtime.
 
 ## Included
@@ -36,7 +38,7 @@ Use a backup before importing SQL into an existing realm.
 
 | Database | Files |
 | --- | --- |
-| World | `nostalgia_ambient_chat.sql`, `nostalgia_ambient_chat_who_factions.sql`, `nostalgia_content_locks.sql`, `nostalgia_instance_sizes.sql`, `nostalgia_transmog_world.sql`, `nostalgia_ascii_german_locales.sql` |
+| World | `nostalgia_ambient_chat.sql`, `nostalgia_ambient_chat_who_factions.sql`, `nostalgia_content_locks.sql`, `nostalgia_instance_sizes.sql`, `nostalgia_transmog_world.sql`, `nostalgia_ascii_german_locales.sql`, `nostalgia_gurubashi_hourly.sql` |
 | Characters | `nostalgia_ahbot_owner_characters.sql`, `nostalgia_transmog_characters.sql` |
 | Login | `nostalgia_realmname.sql` |
 
@@ -47,7 +49,7 @@ Import `nostalgia_ambient_chat.sql` before `nostalgia_ambient_chat_who_factions.
 - Naxxramas endcontent; Zul'Gurub and both Ahn'Qiraj raids are locked at their entrances
 - Global `/1` chat with fake players, faction-aware `/who`, whisper replies and fake-player PartyBot invites
 - Optional outdoor rival encounters: an opposing BattleBot challenges eligible players outside safe areas and awards normal PvP honor; enemy territory can use a higher chance and GMs can inspect it with `.rival debug` / `.rival status`
-- Three free-for-all BattleBot rivals protect every Gurubashi Arena chest event and disappear with the chest
+- Two to four permanent free-for-all BattleBot rivals roam Gurubashi Arena, attack players entering the ring and rotate hourly; the chest itself runs on each full server hour
 - Player-accessible `.x` PartyBot commands and optional XBot addon
 - Shared Alliance/Horde/Booty Bay auction house plus named `Ahbot`
 - Transmogger NPCs in Stormwind and Orgrimmar
