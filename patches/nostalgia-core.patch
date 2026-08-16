@@ -1329,7 +1329,7 @@ index ca773b3ce..92628f5ef 100644
      {
          sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "PlayerBotAI::SpawnNewPlayer: Map (%u, %u) not found!", mapId, instanceId);
 diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
-index 4475bdc50..c3387f64d 100644
+index 4475bdc50..0201c8b7d 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.cpp
 +++ b/src/game/PlayerBots/PlayerBotMgr.cpp
 @@ -7,6 +7,7 @@
@@ -1523,7 +1523,7 @@ index 4475bdc50..c3387f64d 100644
  bool PlayerBotMgr::AddBot(uint32 playerGUID, bool chatBot, PlayerBotAI* pAI)
  {
      uint32 accountId = 0;
-@@ -623,6 +731,475 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
+@@ -623,6 +731,515 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
      }
  }
  
@@ -1670,8 +1670,11 @@ index 4475bdc50..c3387f64d 100644
 +    static float const ARENA_CENTER_Y = 167.0f;
 +    static float const ARENA_RADIUS = 70.0f;
 +
++    float const centerX = m_gurubashiArenaChestKnown ? m_gurubashiArenaChestX : ARENA_CENTER_X;
++    float const centerY = m_gurubashiArenaChestKnown ? m_gurubashiArenaChestY : ARENA_CENTER_Y;
++
 +    return player && player->IsInWorld() && player->GetMapId() == 0 &&
-+        player->GetDistance2d(ARENA_CENTER_X, ARENA_CENTER_Y) <= ARENA_RADIUS;
++        player->GetDistance2d(centerX, centerY) <= ARENA_RADIUS;
 +}
 +
 +bool PlayerBotMgr::StartRivalTest(Player* target)
@@ -1966,7 +1969,10 @@ index 4475bdc50..c3387f64d 100644
 +{
 +    static uint16 const GURUBASHI_ARENA_CHEST_EVENT = 16;
 +    if (m_gurubashiArenaTestExpiry && sWorld.GetGameTime() < m_gurubashiArenaTestExpiry)
++    {
++        EngageGurubashiArenaPlayers();
 +        return;
++    }
 +
 +    uint32 arenaRivalCount = 0;
 +    for (auto const& itr : m_bots)
@@ -1989,6 +1995,7 @@ index 4475bdc50..c3387f64d 100644
 +    {
 +        if (!arenaRivalCount)
 +            AddGurubashiArenaRivals();
++        EngageGurubashiArenaPlayers();
 +    }
 +    else if (arenaRivalCount)
 +    {
@@ -1996,10 +2003,43 @@ index 4475bdc50..c3387f64d 100644
 +    }
 +}
 +
++void PlayerBotMgr::EngageGurubashiArenaPlayers()
++{
++    Player* target = nullptr;
++    for (auto const& itr : sWorld.GetAllSessions())
++    {
++        WorldSession* session = itr.second;
++        Player* player = session ? session->GetPlayer() : nullptr;
++        if (player && !player->IsBot() && player->IsAlive() && IsInGurubashiArena(player))
++        {
++            target = player;
++            break;
++        }
++    }
++
++    if (!target)
++        return;
++
++    target->SetFFAPvP(true);
++    for (auto const& itr : m_bots)
++    {
++        BattleBotAI* battleBot = dynamic_cast<BattleBotAI*>(itr.second->ai.get());
++        if (!battleBot || !battleBot->IsGurubashiArenaRival())
++            continue;
++
++        battleBot->SetGurubashiArenaTarget(target->GetObjectGuid());
++        if (battleBot->me && battleBot->me->IsInWorld() && battleBot->me->IsAlive())
++        {
++            battleBot->me->SetFFAPvP(true);
++            battleBot->AttackStart(target);
++        }
++    }
++}
++
  void PlayerBotMgr::DeleteBattleBots()
  {
      for (auto const& itr : m_bots)
-@@ -2038,3 +2615,92 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
+@@ -2038,3 +2655,92 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
      PSendSysMessage("Showing %u paths for battleground.", id);
      return true;
  }
@@ -2093,7 +2133,7 @@ index 4475bdc50..c3387f64d 100644
 +
 +
 diff --git a/src/game/PlayerBots/PlayerBotMgr.h b/src/game/PlayerBots/PlayerBotMgr.h
-index a1067512a..646d16acc 100644
+index a1067512a..465030235 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.h
 +++ b/src/game/PlayerBots/PlayerBotMgr.h
 @@ -11,6 +11,7 @@
@@ -2136,13 +2176,14 @@ index a1067512a..646d16acc 100644
  
          void DeleteAll();
          void AddAllBots();
-@@ -108,6 +123,19 @@ class PlayerBotMgr
+@@ -108,6 +123,20 @@ class PlayerBotMgr
          PlayerBotStats& GetStats(){ return m_stats; }
          void Start() { m_confEnableRandomBots = true; }
      protected:
 +        void UpdateOutdoorRivals();
 +        void UpdateRivalTest();
 +        void UpdateGurubashiArenaRivals();
++        void EngageGurubashiArenaPlayers();
 +        void AddGurubashiArenaRivals();
 +        void DeleteGurubashiArenaRivals();
 +        bool HasGurubashiArenaChest() const;
@@ -2156,7 +2197,7 @@ index a1067512a..646d16acc 100644
          // How long since last update?
          uint32 m_elapsedTime;
          uint32 m_lastBotsRefresh;
-@@ -115,6 +143,18 @@ class PlayerBotMgr
+@@ -115,6 +144,18 @@ class PlayerBotMgr
          uint32 m_totalChance;
          uint32 m_maxAccountId;
          time_t m_lastBattleBotQueueUpdate;
@@ -2175,7 +2216,7 @@ index a1067512a..646d16acc 100644
  
          std::map<uint64 /*pl guid*/, std::shared_ptr<PlayerBotEntry>> m_bots;
          std::map<uint32 /*account*/, uint32> m_tempBots;
-@@ -128,6 +168,17 @@ class PlayerBotMgr
+@@ -128,6 +169,17 @@ class PlayerBotMgr
          bool m_confDebug;
          bool m_confEnableRandomBots;
          bool m_confBattleBotAutoJoin;
