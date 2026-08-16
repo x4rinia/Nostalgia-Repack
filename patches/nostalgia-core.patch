@@ -1360,7 +1360,7 @@ index ca773b3ce..92628f5ef 100644
      {
          sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "PlayerBotAI::SpawnNewPlayer: Map (%u, %u) not found!", mapId, instanceId);
 diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
-index 4475bdc50..af8d36980 100644
+index 4475bdc50..3d060716c 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.cpp
 +++ b/src/game/PlayerBots/PlayerBotMgr.cpp
 @@ -7,6 +7,7 @@
@@ -2070,7 +2070,7 @@ index 4475bdc50..af8d36980 100644
  void PlayerBotMgr::DeleteBattleBots()
  {
      for (auto const& itr : m_bots)
-@@ -2038,3 +2655,100 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
+@@ -2038,3 +2655,104 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
      PSendSysMessage("Showing %u paths for battleground.", id);
      return true;
  }
@@ -2094,9 +2094,13 @@ index 4475bdc50..af8d36980 100644
 +    }
 +
 +    Player* player = GetSession() ? GetSession()->GetPlayer() : nullptr;
++    // Starting debug twice should be convenient during testing.  Clean up a
++    // pending countdown or its previous dedicated test rival before starting
++    // a fresh outdoor test; permanent arena rivals are never touched.
++    sPlayerBotMgr.CancelRivalTest();
 +    if (!player || !sPlayerBotMgr.StartRivalTest(player))
 +    {
-+        SendSysMessage("Ein Rivalen-Test laeuft bereits oder dein Charakter ist nicht in der Welt.");
++        SendSysMessage("Dein Charakter ist nicht in der Welt.");
 +        SetSentErrorMessage(true);
 +        return false;
 +    }
