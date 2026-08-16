@@ -166,7 +166,13 @@ INSERT INTO `nostalgia_ambient_chat` (`zone_id`, `channel_name`, `sender_guid`, 
 (1519, 'General', 900158, 'Eberzahn', 2, 0, 1, 'kaufe thoriumbarren und arkanes kristall zahle fair'),
 (1637, 'General', 900159, 'Tranktaxi', 8, 1, 8, 'port zu allen hauptstaedten gegen kleine spende'),
 (1519, 'General', 900160, 'Manahexe', 5, 1, 5, 'wts mana pot und major healing pot 5er stacks'),
-(1637, 'General', 900161, 'Knochenkrug', 2, 0, 9, 'wer verkauft mir nen black lotus bitte /w');
+(1637, 'General', 900161, 'Knochenkrug', 2, 0, 9, 'wer verkauft mir nen black lotus bitte /w'),
+(1519, 'General', 900162, 'Capslock', 1, 0, 1, 'LFM BRD 10ER NEED HEAL UND 2 DD JETZT'),
+(1637, 'General', 900163, 'Kapitankeks', 2, 1, 5, 'captn caps wieder an bord xD'),
+(1519, 'General', 900164, 'Grossmaul', 3, 0, 4, 'WER HAT LUST AUF UBRS REND RUN?'),
+(1637, 'General', 900165, 'Shiftkeks', 5, 1, 9, 'shift taste klemmt wohl ^^'),
+(1519, 'General', 900166, 'Schreihals', 4, 1, 8, 'WTS ARKANITBARREN NUR HEUTE GUENSTIG'),
+(1637, 'General', 900167, 'Leisefuchs', 8, 0, 3, 'mein headset macht aua nur vom lesen :D');
 
 -- Messages are shown through the Vanilla client's automatically joined /1 General channel.
 UPDATE `nostalgia_ambient_chat` SET `channel_name` = 'General';
@@ -195,5 +201,6 @@ SET `guild_name` = CASE
     WHEN `sender_guid` BETWEEN 900116 AND 900120 THEN 'Rend oder Raus'
     WHEN `sender_guid` BETWEEN 900121 AND 900141 THEN 'Horde Feierabend'
     WHEN `sender_guid` BETWEEN 900142 AND 900161 THEN 'Handelshaus Helden'
+    WHEN `sender_guid` BETWEEN 900162 AND 900167 THEN 'Die Shift Taste'
     ELSE 'Nostalgia'
 END;
