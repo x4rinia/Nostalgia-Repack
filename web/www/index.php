@@ -276,174 +276,151 @@ $dumps = is_dir($dumpDirectory) ? dumpFiles($dumpDirectory) : [];
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Nostalgia Verwaltung</title>
-    <style>
-        :root { color-scheme: dark; --gold: #d8ad43; --blue: #9ecbff; --ink: #09101f; --panel: #101b31; --line: #546d95; --green: #81d49a; --red: #ff9898; }
-        * { box-sizing: border-box; }
-        body { margin: 0; min-height: 100vh; color: #e6edf9; background: radial-gradient(circle at top, #20385b 0, #09101f 48rem); font: 16px/1.5 Georgia, "Times New Roman", serif; }
-        main { width: min(980px, calc(100% - 32px)); margin: 32px auto 44px; }
-        header { text-align: center; margin-bottom: 28px; }
-        .logo { display: block; width: min(360px, 84vw); height: auto; margin: 0 auto 2px; filter: drop-shadow(0 4px 9px rgba(0,0,0,.75)); }
-        h1 { margin: 0; color: var(--gold); letter-spacing: .08em; font-size: clamp(2rem, 5vw, 3.2rem); text-shadow: 0 2px #000; }
-        header p { margin: 6px 0 0; color: var(--blue); }
-        nav { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-        nav a { border: 1px solid #617ca6; border-radius: 4px; padding: 7px 13px; color: #dceaff; background: rgba(6, 12, 24, .7); font-weight: bold; text-decoration: none; }
-        nav a:hover, nav a.active { border-color: #efc95d; color: #fff3bb; background: rgba(96, 42, 24, .8); }
-        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-        .card { border: 1px solid var(--line); border-radius: 8px; padding: 22px; background: linear-gradient(145deg, rgba(28, 48, 82, .94), rgba(10, 18, 33, .94)); box-shadow: 0 12px 30px rgba(0,0,0,.28); }
-        .wide { grid-column: 1 / -1; }
-        h2 { margin: 0 0 14px; color: var(--gold); font-size: 1.35rem; }
-        p { margin: 0 0 14px; }
-        label { display: block; margin: 12px 0 5px; color: var(--blue); font-weight: bold; }
-        input { width: 100%; border: 1px solid #6682ad; border-radius: 4px; padding: 10px; color: #fff; background: #060c18; font: inherit; }
-        button { margin-top: 16px; border: 1px solid #efc95d; border-radius: 4px; padding: 10px 16px; color: #fff3bb; background: linear-gradient(#7d2727, #411011); font: bold 16px Georgia, serif; cursor: pointer; }
-        button:hover { filter: brightness(1.2); }
-        .notice, .error { margin-bottom: 20px; border-radius: 5px; padding: 12px 16px; }
-        .notice { border: 1px solid #4c9b65; color: var(--green); background: rgba(24, 78, 42, .65); }
-        .error { border: 1px solid #ab4545; color: var(--red); background: rgba(96, 25, 25, .65); }
-        code { padding: 2px 5px; border-radius: 3px; color: #fff0ae; background: #060c18; }
-        .steps { margin: 0; padding-left: 22px; }
-        .steps li { margin: 8px 0; }
-        table { width: 100%; border-collapse: collapse; font-size: .95rem; }
-        th, td { padding: 10px 6px; border-bottom: 1px solid rgba(137, 165, 207, .25); text-align: left; }
-        th { color: var(--blue); }
-        .download { margin: 0; }
-        .download button { margin: 0; padding: 6px 10px; font-size: .9rem; }
-        .danger { border-color: #9c4545; background: linear-gradient(145deg, rgba(74, 25, 31, .94), rgba(29, 9, 13, .94)); }
-        .danger button { border-color: #ed7777; background: linear-gradient(#8b1d28, #44080d); }
-        .feature { min-height: 150px; }
-        .feature h2 { font-size: 1.18rem; }
-        .action-link { display: inline-block; margin-top: 4px; border: 1px solid #efc95d; border-radius: 4px; padding: 9px 14px; color: #fff3bb; background: linear-gradient(#7d2727, #411011); font-weight: bold; text-decoration: none; }
-        .backup-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(210px, 290px); align-items: center; gap: 22px; }
-        .backup-art { display: block; width: 100%; max-width: 290px; margin: 0 auto; border: 1px solid rgba(216, 173, 67, .45); border-radius: 6px; box-shadow: 0 8px 22px rgba(0, 0, 0, .42); }
-        .muted { color: #b4c1d7; font-size: .92rem; }
-        footer { margin-top: 20px; color: #99a9c3; text-align: center; font-size: .9rem; }
-        @media (max-width: 700px) { main { margin: 24px auto; } .grid { grid-template-columns: 1fr; } .wide { grid-column: auto; } .backup-layout { grid-template-columns: 1fr; } .backup-art { max-width: 250px; } }
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style type="text/tailwindcss">
+        @theme {
+            --color-ink: #07101e;
+            --color-night: #0b1729;
+            --color-panel: #101f37;
+            --color-gold: #f2c55c;
+            --color-sky: #9fd0ff;
+            --shadow-glow: 0 0 0 1px rgba(242,197,92,.22), 0 24px 60px rgba(0,0,0,.42);
+        }
+
+        body { background: #07101e; }
     </style>
 </head>
-<body>
-<main>
-    <header>
-        <img class="logo" src="assets/nostalgia-logo.png" alt="Nostalgia">
-        <h1>NOSTALGIA</h1>
-        <p>Lokale Account- und Charakterverwaltung</p>
-        <nav aria-label="Hauptnavigation">
-            <a class="<?= $page === 'home' ? 'active' : '' ?>" href="?page=home">Startseite</a>
-            <a class="<?= $page === 'accounts' ? 'active' : '' ?>" href="?page=accounts">Account verwalten</a>
-            <a class="<?= $page === 'characters' ? 'active' : '' ?>" href="?page=characters">Charaktere</a>
+<body class="min-h-screen overflow-x-hidden bg-ink font-serif text-slate-100 selection:bg-gold/30 selection:text-white">
+<div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+    <div class="absolute -top-52 left-1/2 h-[34rem] w-[54rem] -translate-x-1/2 rounded-full bg-sky/15 blur-3xl"></div>
+    <div class="absolute -bottom-64 -left-40 h-[38rem] w-[38rem] rounded-full bg-amber-600/10 blur-3xl"></div>
+</div>
+<main class="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
+    <header class="mb-8 text-center sm:mb-12">
+        <img class="mx-auto mb-1 w-72 max-w-[85vw] drop-shadow-[0_8px_16px_rgba(0,0,0,.8)] sm:w-96" src="assets/nostalgia-logo.png" alt="Nostalgia">
+        <div class="mx-auto flex max-w-xl items-center gap-3 before:h-px before:flex-1 before:bg-gradient-to-r before:from-transparent before:to-gold/70 after:h-px after:flex-1 after:bg-gradient-to-l after:from-transparent after:to-gold/70">
+            <span class="text-[10px] tracking-[.42em] text-gold/90">VANILLA REIMAGINED</span>
+        </div>
+        <h1 class="mt-3 text-4xl font-bold tracking-[.16em] text-gold [text-shadow:0_3px_0_#35200b,0_8px_24px_rgba(0,0,0,.7)] sm:text-5xl">NOSTALGIA</h1>
+        <p class="mt-3 text-sm tracking-wide text-sky sm:text-base">Lokale Account- und Charakterverwaltung</p>
+        <nav class="mt-7 flex flex-wrap justify-center gap-2" aria-label="Hauptnavigation">
+            <a class="rounded-xl border px-4 py-2 text-sm font-bold transition <?= $page === 'home' ? 'border-gold bg-amber-500/20 text-amber-100 shadow-glow' : 'border-slate-500/50 bg-slate-950/40 text-slate-200 hover:border-gold/70 hover:bg-slate-800/70 hover:text-gold' ?>" href="?page=home">Startseite</a>
+            <a class="rounded-xl border px-4 py-2 text-sm font-bold transition <?= $page === 'accounts' ? 'border-gold bg-amber-500/20 text-amber-100 shadow-glow' : 'border-slate-500/50 bg-slate-950/40 text-slate-200 hover:border-gold/70 hover:bg-slate-800/70 hover:text-gold' ?>" href="?page=accounts">Account verwalten</a>
+            <a class="rounded-xl border px-4 py-2 text-sm font-bold transition <?= $page === 'characters' ? 'border-gold bg-amber-500/20 text-amber-100 shadow-glow' : 'border-slate-500/50 bg-slate-950/40 text-slate-200 hover:border-gold/70 hover:bg-slate-800/70 hover:text-gold' ?>" href="?page=characters">Charaktere</a>
         </nav>
     </header>
 
-    <?php if ($notice !== ''): ?><div class="notice"><?= h($notice) ?></div><?php endif; ?>
-    <?php if ($error !== ''): ?><div class="error"><?= h($error) ?></div><?php endif; ?>
+    <?php if ($notice !== ''): ?><div class="mb-6 rounded-xl border border-emerald-400/50 bg-emerald-950/70 px-5 py-4 text-emerald-200 shadow-lg" role="status"><?= h($notice) ?></div><?php endif; ?>
+    <?php if ($error !== ''): ?><div class="mb-6 rounded-xl border border-red-400/50 bg-red-950/70 px-5 py-4 text-red-200 shadow-lg" role="alert"><?= h($error) ?></div><?php endif; ?>
 
     <?php if ($page === 'home'): ?>
-    <section class="grid">
-        <article class="card feature">
-            <h2>Vanilla, wie es sich erinnern soll</h2>
-            <p>Naxxramas ist das Endziel. Molten Core und Blackwing Lair sind verfuegbar, Zul'Gurub und Ahn'Qiraj bleiben geschlossen.</p>
+    <section class="grid gap-5 md:grid-cols-2">
+        <article class="group relative overflow-hidden rounded-2xl border border-slate-500/40 bg-gradient-to-br from-panel/95 to-slate-950/90 p-6 shadow-xl transition duration-300 hover:-translate-y-1 hover:border-gold/60 hover:shadow-glow">
+            <div class="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gold/40 bg-amber-400/10 text-xl text-gold">✦</div>
+            <h2 class="mb-3 text-xl font-bold text-gold">Vanilla, wie es sich erinnern soll</h2>
+            <p class="leading-7 text-slate-300">Naxxramas ist das Endziel. Molten Core und Blackwing Lair sind verfuegbar, Zul'Gurub und Ahn'Qiraj bleiben geschlossen.</p>
         </article>
-        <article class="card feature">
-            <h2>Eine lebendige Welt</h2>
-            <p>Der globale Allgemein-Chat, fiktive Spieler, Gilden und Gruppenaufrufe geben der Welt wieder echtes Vanilla-Gefuehl.</p>
+        <article class="group relative overflow-hidden rounded-2xl border border-slate-500/40 bg-gradient-to-br from-panel/95 to-slate-950/90 p-6 shadow-xl transition duration-300 hover:-translate-y-1 hover:border-gold/60 hover:shadow-glow">
+            <div class="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-sky/40 bg-sky/10 text-xl text-sky">◌</div>
+            <h2 class="mb-3 text-xl font-bold text-gold">Eine lebendige Welt</h2>
+            <p class="leading-7 text-slate-300">Der globale Allgemein-Chat, fiktive Spieler, Gilden und Gruppenaufrufe geben der Welt wieder echtes Vanilla-Gefuehl.</p>
         </article>
-        <article class="card feature">
-            <h2>Gemeinsam oder solo</h2>
-            <p>PartyBots, gemeinsames Auktionshaus und der Transmogger machen kleine Runden angenehm spielbar.</p>
+        <article class="group relative overflow-hidden rounded-2xl border border-slate-500/40 bg-gradient-to-br from-panel/95 to-slate-950/90 p-6 shadow-xl transition duration-300 hover:-translate-y-1 hover:border-gold/60 hover:shadow-glow">
+            <div class="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-violet-300/40 bg-violet-400/10 text-xl text-violet-200">⚔</div>
+            <h2 class="mb-3 text-xl font-bold text-gold">Gemeinsam oder solo</h2>
+            <p class="leading-7 text-slate-300">PartyBots, gemeinsames Auktionshaus und der Transmogger machen kleine Runden angenehm spielbar.</p>
         </article>
-        <article class="card feature">
-            <h2>Lokale Verwaltung</h2>
-            <p>Konten anlegen oder loeschen sowie Charakter-Sicherungen hoch- und herunterladen.</p>
-            <a class="action-link" href="?page=accounts">Account verwalten</a>
-            <a class="action-link" href="?page=characters">Charaktere</a>
+        <article class="relative overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-br from-amber-950/55 to-slate-950/95 p-6 shadow-xl">
+            <div class="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gold/40 bg-amber-400/10 text-xl text-gold">⌘</div>
+            <h2 class="mb-3 text-xl font-bold text-gold">Lokale Verwaltung</h2>
+            <p class="mb-5 leading-7 text-slate-300">Konten anlegen oder loeschen sowie Charakter-Sicherungen hoch- und herunterladen.</p>
+            <div class="flex flex-wrap gap-3">
+                <a class="rounded-lg border border-gold/70 bg-amber-500/15 px-4 py-2 text-sm font-bold text-amber-100 transition hover:bg-amber-400/25" href="?page=accounts">Accounts</a>
+                <a class="rounded-lg border border-sky/50 bg-sky/10 px-4 py-2 text-sm font-bold text-sky transition hover:bg-sky/20" href="?page=characters">Charaktere</a>
+            </div>
         </article>
     </section>
     <?php elseif ($page === 'accounts'): ?>
-    <section class="grid">
-        <article class="card">
-            <h2>Account erstellen</h2>
-            <p class="muted">Erstellt ein normales Spieler-Konto mit dem gleichen SRP6-Verfahren wie die Worldserver-Konsole.</p>
-            <form method="post" autocomplete="off">
+    <section class="grid gap-5 lg:grid-cols-2">
+        <article class="rounded-2xl border border-slate-500/40 bg-gradient-to-br from-panel/95 to-slate-950/90 p-6 shadow-xl sm:p-8">
+            <div class="mb-5 flex items-start gap-4"><span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-300/40 bg-emerald-400/10 text-xl text-emerald-200">+</span><div><h2 class="text-xl font-bold text-gold">Account erstellen</h2><p class="mt-1 text-sm leading-6 text-slate-400">Normales Spieler-Konto mit dem gleichen SRP6-Verfahren wie die Worldserver-Konsole.</p></div></div>
+            <form class="space-y-4" method="post" autocomplete="off">
                 <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
                 <input type="hidden" name="action" value="create_account">
                 <input type="hidden" name="page" value="accounts">
-                <label for="username">Accountname</label>
-                <input id="username" name="username" maxlength="16" pattern="[A-Za-z0-9]{3,16}" required>
-                <label for="password">Passwort</label>
-                <input id="password" name="password" type="password" maxlength="16" pattern="[A-Za-z0-9]{3,16}" required>
-                <button type="submit">Account anlegen</button>
+                <div><label class="mb-2 block text-sm font-bold text-sky" for="username">Accountname</label><input class="block w-full rounded-xl border border-slate-500/60 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-gold focus:ring-2 focus:ring-gold/20" id="username" name="username" maxlength="16" pattern="[A-Za-z0-9]{3,16}" required></div>
+                <div><label class="mb-2 block text-sm font-bold text-sky" for="password">Passwort</label><input class="block w-full rounded-xl border border-slate-500/60 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-gold focus:ring-2 focus:ring-gold/20" id="password" name="password" type="password" maxlength="16" pattern="[A-Za-z0-9]{3,16}" required></div>
+                <button class="w-full rounded-xl border border-gold/80 bg-gradient-to-b from-amber-400/30 to-amber-700/25 px-5 py-3 font-bold text-amber-50 shadow-lg transition hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-gold/50" type="submit">Account anlegen</button>
             </form>
         </article>
 
-        <article class="card danger">
-            <h2>Account loeschen</h2>
-            <p class="muted">Nur Konten ohne Charaktere koennen hier geloescht werden. Das verhindert, dass Charakterdaten versehentlich verloren gehen.</p>
-            <form method="post" autocomplete="off" onsubmit="return confirm('Diesen leeren Account wirklich unwiderruflich loeschen?');">
+        <article class="rounded-2xl border border-red-400/35 bg-gradient-to-br from-red-950/55 to-slate-950/90 p-6 shadow-xl sm:p-8">
+            <div class="mb-5 flex items-start gap-4"><span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-red-300/40 bg-red-400/10 text-xl text-red-200">!</span><div><h2 class="text-xl font-bold text-gold">Account loeschen</h2><p class="mt-1 text-sm leading-6 text-slate-400">Nur Konten ohne Charaktere koennen hier geloescht werden. So bleiben Charakterdaten geschuetzt.</p></div></div>
+            <form class="space-y-4" method="post" autocomplete="off" onsubmit="return confirm('Diesen leeren Account wirklich unwiderruflich loeschen?');">
                 <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
                 <input type="hidden" name="action" value="delete_account">
                 <input type="hidden" name="page" value="accounts">
-                <label for="delete_username">Accountname</label>
-                <input id="delete_username" name="username" maxlength="16" pattern="[A-Za-z0-9]{3,16}" required>
-                <label for="confirmation">Zur Bestaetigung LOESCHEN eingeben</label>
-                <input id="confirmation" name="confirmation" maxlength="8" pattern="LOESCHEN" required>
-                <button type="submit">Account loeschen</button>
+                <div><label class="mb-2 block text-sm font-bold text-sky" for="delete_username">Accountname</label><input class="block w-full rounded-xl border border-red-300/30 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-300/20" id="delete_username" name="username" maxlength="16" pattern="[A-Za-z0-9]{3,16}" required></div>
+                <div><label class="mb-2 block text-sm font-bold text-sky" for="confirmation">Zur Bestaetigung <span class="text-red-200">LOESCHEN</span> eingeben</label><input class="block w-full rounded-xl border border-red-300/30 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-300/20" id="confirmation" name="confirmation" maxlength="8" pattern="LOESCHEN" required></div>
+                <button class="w-full rounded-xl border border-red-300/70 bg-gradient-to-b from-red-500/35 to-red-900/45 px-5 py-3 font-bold text-red-50 shadow-lg transition hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-red-300/50" type="submit">Leeren Account loeschen</button>
             </form>
         </article>
     </section>
     <?php else: ?>
-    <section class="grid">
+    <section class="grid gap-5">
 
-        <article class="card wide">
-            <div class="backup-layout">
+        <article class="rounded-2xl border border-slate-500/40 bg-gradient-to-br from-panel/95 to-slate-950/90 p-6 shadow-xl sm:p-8">
+            <div class="grid items-center gap-8 lg:grid-cols-[1fr_280px]">
                 <div>
-                    <h2>Charakter sichern</h2>
-                    <p class="muted">Eine Sicherung wird bewusst vom Worldserver erstellt, damit auch Inventar, Zauber, Quests und Begleiter korrekt enthalten sind.</p>
-                    <ol class="steps">
-                        <li>Mit dem gewuenschten Charakter einloggen.</li>
-                        <li>Im Chat <code>.x save meinchar</code> eingeben.</li>
-                        <li>Die Datei <code>meinchar.pdump</code> erscheint unten und kann heruntergeladen werden.</li>
+                    <div class="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gold/40 bg-amber-400/10 text-xl text-gold">▣</div>
+                    <h2 class="mb-3 text-2xl font-bold text-gold">Charakter sichern</h2>
+                    <p class="mb-5 leading-7 text-slate-300">Eine Sicherung wird bewusst vom Worldserver erstellt, damit auch Inventar, Zauber, Quests und Begleiter korrekt enthalten sind.</p>
+                    <ol class="space-y-3 text-slate-300">
+                        <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky/15 text-xs font-bold text-sky">1</span><span>Mit dem gewuenschten Charakter einloggen.</span></li>
+                        <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky/15 text-xs font-bold text-sky">2</span><span>Im Chat <code class="rounded bg-slate-950 px-2 py-1 text-sm text-amber-100">.x save meinchar</code> eingeben.</span></li>
+                        <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky/15 text-xs font-bold text-sky">3</span><span>Die Datei <code class="rounded bg-slate-950 px-2 py-1 text-sm text-amber-100">meinchar.pdump</code> erscheint unten und kann heruntergeladen werden.</span></li>
                     </ol>
                 </div>
-                <img class="backup-art" src="assets/character-backup.png" alt="Abenteurer-Tasche, Charakterakte und magische Sicherungsrune">
+                <img class="mx-auto w-full max-w-[280px] rounded-2xl border border-gold/40 shadow-glow" src="assets/character-backup.png" alt="Abenteurer-Tasche, Charakterakte und magische Sicherungsrune">
             </div>
         </article>
 
-        <article class="card wide">
-            <h2>Charakter-Sicherung hochladen</h2>
-            <p class="muted">Nur vMaNGOS-<code>.pdump</code>-Dateien verwenden. Nach dem Upload mit einem Charakter des Zielkontos einloggen und <code>.x load dateiname</code> ohne die Endung eingeben. Der Import erstellt einen Charakter auf diesem Konto.</p>
-            <form method="post" enctype="multipart/form-data">
+        <article class="rounded-2xl border border-slate-500/40 bg-gradient-to-br from-panel/95 to-slate-950/90 p-6 shadow-xl sm:p-8">
+            <h2 class="mb-2 text-2xl font-bold text-gold">Charakter-Sicherung hochladen</h2>
+            <p class="mb-6 max-w-3xl leading-7 text-slate-400">Nur vMaNGOS-<code class="rounded bg-slate-950 px-2 py-1 text-sm text-amber-100">.pdump</code>-Dateien verwenden. Nach dem Upload mit einem Charakter des Zielkontos einloggen und <code class="rounded bg-slate-950 px-2 py-1 text-sm text-amber-100">.x load dateiname</code> ohne die Endung eingeben.</p>
+            <form class="flex flex-col gap-4 sm:flex-row sm:items-end" method="post" enctype="multipart/form-data">
                 <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
                 <input type="hidden" name="action" value="upload_dump">
                 <input type="hidden" name="page" value="characters">
-                <label for="pdump">.pdump-Datei (maximal 10 MB)</label>
-                <input id="pdump" name="pdump" type="file" accept=".pdump,text/plain" required>
-                <button type="submit">Sicherung hochladen</button>
+                <div class="w-full"><label class="mb-2 block text-sm font-bold text-sky" for="pdump">.pdump-Datei (maximal 10 MB)</label><input class="block w-full cursor-pointer rounded-xl border border-dashed border-sky/40 bg-slate-950/55 px-3 py-3 text-sm text-slate-300 file:mr-4 file:rounded-lg file:border-0 file:bg-sky/15 file:px-3 file:py-2 file:font-bold file:text-sky hover:file:bg-sky/25" id="pdump" name="pdump" type="file" accept=".pdump,text/plain" required></div>
+                <button class="shrink-0 rounded-xl border border-gold/80 bg-gradient-to-b from-amber-400/30 to-amber-700/25 px-5 py-3 font-bold text-amber-50 shadow-lg transition hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-gold/50" type="submit">Hochladen</button>
             </form>
         </article>
 
-        <article class="card wide">
-            <h2>Vorhandene Sicherungen</h2>
+        <article class="overflow-hidden rounded-2xl border border-slate-500/40 bg-gradient-to-br from-panel/95 to-slate-950/90 shadow-xl">
+            <div class="border-b border-slate-500/30 px-6 py-5 sm:px-8"><h2 class="text-2xl font-bold text-gold">Vorhandene Sicherungen</h2></div>
             <?php if ($dumps === []): ?>
-                <p class="muted">Noch keine .pdump-Dateien vorhanden. Erstelle die erste Sicherung mit <code>.x save dateiname</code>.</p>
+                <p class="px-6 py-7 text-slate-400 sm:px-8">Noch keine .pdump-Dateien vorhanden. Erstelle die erste Sicherung mit <code class="rounded bg-slate-950 px-2 py-1 text-sm text-amber-100">.x save dateiname</code>.</p>
             <?php else: ?>
-                <table>
-                    <thead><tr><th>Datei</th><th>Groesse</th><th>Geaendert</th><th></th></tr></thead>
+                <div class="overflow-x-auto"><table class="w-full min-w-[620px] text-left text-sm">
+                    <thead class="bg-slate-950/45 text-xs uppercase tracking-wider text-sky"><tr><th class="px-6 py-4 font-bold sm:px-8">Datei</th><th class="px-4 py-4 font-bold">Groesse</th><th class="px-4 py-4 font-bold">Geaendert</th><th class="px-6 py-4 sm:px-8"></th></tr></thead>
                     <tbody>
                     <?php foreach ($dumps as $dump): $name = basename($dump); ?>
-                        <tr>
-                            <td><?= h($name) ?></td>
-                            <td><?= h(number_format((int)filesize($dump) / 1024, 1, ',', '.')) ?> KB</td>
-                            <td><?= h(date('d.m.Y H:i', (int)filemtime($dump))) ?></td>
-                            <td><form class="download" method="post"><input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="download_dump"><input type="hidden" name="page" value="characters"><input type="hidden" name="filename" value="<?= h($name) ?>"><button type="submit">Download</button></form></td>
+                        <tr class="border-t border-slate-600/30 text-slate-300 transition hover:bg-slate-800/45">
+                            <td class="px-6 py-4 font-bold text-slate-100 sm:px-8"><?= h($name) ?></td>
+                            <td class="px-4 py-4"><?= h(number_format((int)filesize($dump) / 1024, 1, ',', '.')) ?> KB</td>
+                            <td class="px-4 py-4 text-slate-400"><?= h(date('d.m.Y H:i', (int)filemtime($dump))) ?></td>
+                            <td class="px-6 py-4 text-right sm:px-8"><form method="post"><input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="download_dump"><input type="hidden" name="page" value="characters"><input type="hidden" name="filename" value="<?= h($name) ?>"><button class="rounded-lg border border-sky/45 bg-sky/10 px-3 py-2 text-xs font-bold text-sky transition hover:bg-sky/20" type="submit">Download</button></form></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             <?php endif; ?>
         </article>
     </section>
     <?php endif; ?>
 
-    <footer>Nostalgia by Xarinia 2026</footer>
+    <footer class="mt-8 border-t border-slate-500/25 pt-6 text-center text-sm tracking-wide text-slate-500">Nostalgia by Xarinia 2026</footer>
 </main>
 </body>
 </html>
