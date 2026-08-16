@@ -840,17 +840,51 @@ index 8e222ea2e..205288031 100644
          void _LoadItemLoot(std::unique_ptr<QueryResult> result);
          void _LoadQuestStatus(std::unique_ptr<QueryResult> result);
          void _LoadGroup(std::unique_ptr<QueryResult> result);
+diff --git a/src/game/PlayerBots/PlayerBotAI.cpp b/src/game/PlayerBots/PlayerBotAI.cpp
+index ca773b3ce..b7d8a537b 100644
+--- a/src/game/PlayerBots/PlayerBotAI.cpp
++++ b/src/game/PlayerBots/PlayerBotAI.cpp
+@@ -75,7 +75,9 @@ enum
+ bool PlayerBotAI::SpawnNewPlayer(WorldSession* sess, uint8 class_, uint32 race_, uint32 mapId, uint32 instanceId, float x, float y, float z, float o, Player* pClone)
+ {
+     ASSERT(botEntry);
+-    std::string name = sObjectMgr.GenerateFreePlayerName();
++    std::string name = botEntry->name;
++    if (name.empty())
++        name = sObjectMgr.GenerateFreePlayerName();
+     normalizePlayerName(name);
+ 
+     uint8 gender;
 diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
-index 4475bdc50..f639a26a0 100644
+index 4475bdc50..c1ea041b2 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.cpp
 +++ b/src/game/PlayerBots/PlayerBotMgr.cpp
-@@ -405,6 +405,46 @@ bool PlayerBotMgr::AddBot(PlayerBotAI* ai)
+@@ -392,19 +392,64 @@ bool PlayerBotMgr::AddOrRemoveBot()
+ 
+ }
+ 
+-bool PlayerBotMgr::AddBot(PlayerBotAI* ai)
++bool PlayerBotMgr::AddBot(PlayerBotAI* ai, std::string const& customName)
+ {
+     // Find a correct accountid ?
+     std::shared_ptr<PlayerBotEntry> e = std::make_shared<PlayerBotEntry>();
+     e->ai.reset(ai);
+     e->accountId = GenBotAccountId();
+     e->playerGUID = sObjectMgr.GeneratePlayerLowGuid();
++    e->name = customName;
+     e->customBot = true;
+     ai->botEntry = e.get();
+     m_bots.insert({ e->playerGUID, e });
      return AddBot(e->playerGUID, false);
  }
  
-+bool PlayerBotMgr::AddAmbientPartyBot(Player* leader, uint8 race, uint8 class_)
++bool PlayerBotMgr::AddAmbientPartyBot(Player* leader, uint8 race, uint8 class_, std::string const& name)
 +{
-+    if (!leader || !sObjectMgr.GetPlayerInfo(race, class_))
++    if (!leader || name.empty() || !sObjectMgr.GetPlayerInfo(race, class_))
++        return false;
++
++    // Never steal the name of a real or already active temporary player.
++    if (sObjectMgr.GetPlayerGuidByName(name))
 +        return false;
 +
 +    if (leader->IsTaxiFlying() || leader->InBattleGround())
@@ -881,7 +915,7 @@ index 4475bdc50..f639a26a0 100644
 +    PartyBotAI* ai = new PartyBotAI(leader, nullptr, ROLE_INVALID, race, class_, leader->GetLevel(),
 +        leader->GetMapId(), leader->GetMap()->GetInstanceId(), x, y, z, leader->GetOrientation());
 +
-+    if (AddBot(ai))
++    if (AddBot(ai, name))
 +        return true;
 +
 +    delete ai;
@@ -891,7 +925,7 @@ index 4475bdc50..f639a26a0 100644
  bool PlayerBotMgr::AddBot(uint32 playerGUID, bool chatBot, PlayerBotAI* pAI)
  {
      uint32 accountId = 0;
-@@ -2038,3 +2078,31 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
+@@ -2038,3 +2083,31 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
      PSendSysMessage("Showing %u paths for battleground.", id);
      return true;
  }
@@ -924,14 +958,17 @@ index 4475bdc50..f639a26a0 100644
 +
 +
 diff --git a/src/game/PlayerBots/PlayerBotMgr.h b/src/game/PlayerBots/PlayerBotMgr.h
-index a1067512a..1d82f3ed6 100644
+index a1067512a..8366b0de4 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.h
 +++ b/src/game/PlayerBots/PlayerBotMgr.h
-@@ -81,6 +81,7 @@ class PlayerBotMgr
+@@ -79,8 +79,9 @@ class PlayerBotMgr
+         void Update(uint32 diff);
+         bool AddOrRemoveBot();
  
-         bool AddBot(PlayerBotAI* ai);
+-        bool AddBot(PlayerBotAI* ai);
++        bool AddBot(PlayerBotAI* ai, std::string const& customName = "");
          bool AddBot(uint32 playerGuid, bool chatBot = false, PlayerBotAI* pAI = nullptr);
-+        bool AddAmbientPartyBot(Player* leader, uint8 race, uint8 class_);
++        bool AddAmbientPartyBot(Player* leader, uint8 race, uint8 class_, std::string const& name);
          bool DeleteBot(std::map<uint64, std::shared_ptr<PlayerBotEntry>>::iterator iter);
          bool DeleteBot(uint32 playerGuid);
  
@@ -1284,7 +1321,7 @@ index 1c4eeb0ff..65380c293 100644
  }
 diff --git a/src/game/NostalgiaAmbientChat.cpp b/src/game/NostalgiaAmbientChat.cpp
 new file mode 100644
-index 000000000..7d37d2a8b
+index 000000000..da7521833
 --- /dev/null
 +++ b/src/game/NostalgiaAmbientChat.cpp
 @@ -0,0 +1,226 @@
@@ -1445,7 +1482,7 @@ index 000000000..7d37d2a8b
 +    if (!session || !session->GetPlayer())
 +        return true;
 +
-+    if (sPlayerBotMgr.AddAmbientPartyBot(session->GetPlayer(), entry->race, entry->classId))
++    if (sPlayerBotMgr.AddAmbientPartyBot(session->GetPlayer(), entry->race, entry->classId, entry->senderName))
 +        session->SendNotification("%s schliesst sich deiner Gruppe an.", entry->senderName.c_str());
 +    else
 +        session->SendNotification("%s kann deiner Gruppe gerade nicht beitreten.", entry->senderName.c_str());
