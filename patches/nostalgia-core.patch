@@ -920,7 +920,7 @@ index 8e222ea2e..205288031 100644
          void _LoadQuestStatus(std::unique_ptr<QueryResult> result);
          void _LoadGroup(std::unique_ptr<QueryResult> result);
 diff --git a/src/game/PlayerBots/BattleBotAI.cpp b/src/game/PlayerBots/BattleBotAI.cpp
-index 0f9974c02..568f537aa 100644
+index 0f9974c02..ebeb21f1a 100644
 --- a/src/game/PlayerBots/BattleBotAI.cpp
 +++ b/src/game/PlayerBots/BattleBotAI.cpp
 @@ -32,6 +32,7 @@
@@ -931,7 +931,7 @@ index 0f9974c02..568f537aa 100644
  
  enum BattleBotSpells
  {
-@@ -263,6 +264,250 @@ bool BattleBotAI::ShouldIgnoreCombat() const
+@@ -263,6 +264,256 @@ bool BattleBotAI::ShouldIgnoreCombat() const
      return false;
  }
  
@@ -1094,7 +1094,13 @@ index 0f9974c02..568f537aa 100644
 +            if (IsGurubashiArenaPlayer(target))
 +            {
 +                if (victim != target)
-+                    AttackStart(target);
++                {
++                    // AttackStart() changes me->GetVictim().  Return immediately so the
++                    // stale value in "victim" below cannot make this rival retreat in
++                    // the very same AI update.
++                    if (AttackStart(target))
++                        return;
++                }
 +            }
 +            else
 +                m_gurubashiArenaTargetGuid.Clear();
@@ -1182,7 +1188,7 @@ index 0f9974c02..568f537aa 100644
  Unit* BattleBotAI::SelectAttackTarget(Unit* pExcept) const
  {
      // Ignore attackers while carrying flag, just keep running.
-@@ -691,6 +936,18 @@ void BattleBotAI::UpdateAI(uint32 const diff)
+@@ -691,6 +942,18 @@ void BattleBotAI::UpdateAI(uint32 const diff)
          return;
      }
  
