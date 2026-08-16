@@ -896,7 +896,7 @@ index 8e222ea2e..205288031 100644
          void _LoadQuestStatus(std::unique_ptr<QueryResult> result);
          void _LoadGroup(std::unique_ptr<QueryResult> result);
 diff --git a/src/game/PlayerBots/BattleBotAI.cpp b/src/game/PlayerBots/BattleBotAI.cpp
-index 0f9974c02..39e4e4b59 100644
+index 0f9974c02..9cd14986c 100644
 --- a/src/game/PlayerBots/BattleBotAI.cpp
 +++ b/src/game/PlayerBots/BattleBotAI.cpp
 @@ -32,6 +32,7 @@
@@ -907,7 +907,7 @@ index 0f9974c02..39e4e4b59 100644
  
  enum BattleBotSpells
  {
-@@ -263,6 +264,189 @@ bool BattleBotAI::ShouldIgnoreCombat() const
+@@ -263,6 +264,234 @@ bool BattleBotAI::ShouldIgnoreCombat() const
      return false;
  }
  
@@ -1044,6 +1044,25 @@ index 0f9974c02..39e4e4b59 100644
 +        return;
 +    }
 +
++    // Arena rivals are local event opponents. They never follow anyone out of
++    // the ring and never select another automated player as an opponent.
++    if (!IsInsideGurubashiArena(me))
++    {
++        me->AttackStop(true);
++        me->CombatStop(true);
++        ReturnToGurubashiArena();
++        return;
++    }
++
++    Unit* victim = me->GetVictim();
++    if (victim && !IsGurubashiArenaPlayer(victim))
++    {
++        me->AttackStop(true);
++        me->CombatStop(true);
++        ReturnToGurubashiArena();
++        return;
++    }
++
 +    if (me->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL))
 +    {
 +        if (!me->GetVictim())
@@ -1066,15 +1085,11 @@ index 0f9974c02..39e4e4b59 100644
 +    if (me->GetSheath() == SHEATH_STATE_UNARMED && !me->IsMounted())
 +        me->SetSheath(SHEATH_STATE_MELEE);
 +
-+    Unit* victim = me->GetVictim();
 +    if (!victim || !IsValidHostileTarget(victim) || !me->IsWithinDist(victim, VISIBILITY_DISTANCE_NORMAL))
 +    {
 +        if (victim)
 +            me->AttackStop();
-+        if (Unit* newVictim = SelectAttackTarget(victim))
-+            AttackStart(newVictim);
-+        else
-+            me->StopMoving();
++        ReturnToGurubashiArena();
 +        return;
 +    }
 +
@@ -1094,10 +1109,40 @@ index 0f9974c02..39e4e4b59 100644
 +        UpdateInCombatAI();
 +}
 +
++bool BattleBotAI::IsInsideGurubashiArena(Unit const* unit) const
++{
++    static float const ARENA_CENTER_X = -13261.0f;
++    static float const ARENA_CENTER_Y = 167.0f;
++    static float const ARENA_RADIUS = 70.0f;
++
++    return unit && unit->GetMap() == me->GetMap() && unit->GetDistance2d(ARENA_CENTER_X, ARENA_CENTER_Y) <= ARENA_RADIUS;
++}
++
++bool BattleBotAI::IsGurubashiArenaPlayer(Unit const* unit) const
++{
++    if (!unit || unit->GetTypeId() != TYPEID_PLAYER || !IsInsideGurubashiArena(unit))
++        return false;
++
++    Player const* player = static_cast<Player const*>(unit);
++    return !player->IsBot();
++}
++
++void BattleBotAI::ReturnToGurubashiArena()
++{
++    if (me->GetDistance2d(m_x, m_y) <= 5.0f)
++    {
++        me->StopMoving();
++        return;
++    }
++
++    me->GetMotionMaster()->Clear();
++    me->GetMotionMaster()->MovePoint(0, m_x, m_y, m_z, MOVE_PATHFINDING | MOVE_EXCLUDE_STEEP_SLOPES);
++}
++
  Unit* BattleBotAI::SelectAttackTarget(Unit* pExcept) const
  {
      // Ignore attackers while carrying flag, just keep running.
-@@ -691,6 +875,18 @@ void BattleBotAI::UpdateAI(uint32 const diff)
+@@ -691,6 +920,18 @@ void BattleBotAI::UpdateAI(uint32 const diff)
          return;
      }
  
@@ -1117,7 +1162,7 @@ index 0f9974c02..39e4e4b59 100644
      {
          if (m_wasInBG)
 diff --git a/src/game/PlayerBots/BattleBotAI.h b/src/game/PlayerBots/BattleBotAI.h
-index b01ee2050..3d79c4eb4 100644
+index b01ee2050..bcad1a88b 100644
 --- a/src/game/PlayerBots/BattleBotAI.h
 +++ b/src/game/PlayerBots/BattleBotAI.h
 @@ -36,8 +36,10 @@ enum FlagSpellsWS
@@ -1144,12 +1189,15 @@ index b01ee2050..3d79c4eb4 100644
  
      void OnJustRevived();
      void OnJustDied();
-@@ -114,11 +120,22 @@ public:
+@@ -114,11 +120,25 @@ public:
      bool StartNewPathToPosition(Position const& position, std::vector<BattleBotPath*> const& vPaths);
      void ClearPath();
      void StopMoving();
 +    void UpdateOutdoorRivalAI(uint32 diff);
 +    void UpdateGurubashiArenaRivalAI();
++    bool IsInsideGurubashiArena(Unit const* unit) const;
++    bool IsGurubashiArenaPlayer(Unit const* unit) const;
++    void ReturnToGurubashiArena();
 +    void EndOutdoorRival();
      bool m_doingGraveyardJump = false;
      bool m_movingInReverse = false;
