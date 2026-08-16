@@ -51,7 +51,7 @@ Import `nostalgia_ambient_chat.sql` before `nostalgia_ambient_chat_who_factions.
 - Player-accessible `.x` PartyBot commands and optional XBot addon
 - Shared Alliance/Horde/Booty Bay auction house plus named `Ahbot`
 - Transmogger NPCs in Stormwind and Orgrimmar
-- 10-player Stratholme, Scholomance and Blackrock Depths
+- 10-player Stratholme, Scholomance, Blackrock Depths and Maraudon
 - Local PHP account and `.pdump` character-backup page
 
 ## Website and addon
