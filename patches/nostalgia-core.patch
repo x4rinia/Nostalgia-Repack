@@ -920,7 +920,7 @@ index 8e222ea2e..205288031 100644
          void _LoadQuestStatus(std::unique_ptr<QueryResult> result);
          void _LoadGroup(std::unique_ptr<QueryResult> result);
 diff --git a/src/game/PlayerBots/BattleBotAI.cpp b/src/game/PlayerBots/BattleBotAI.cpp
-index 0f9974c02..f96269e36 100644
+index 0f9974c02..8ec1068f0 100644
 --- a/src/game/PlayerBots/BattleBotAI.cpp
 +++ b/src/game/PlayerBots/BattleBotAI.cpp
 @@ -32,6 +32,7 @@
@@ -931,7 +931,7 @@ index 0f9974c02..f96269e36 100644
  
  enum BattleBotSpells
  {
-@@ -263,6 +264,256 @@ bool BattleBotAI::ShouldIgnoreCombat() const
+@@ -263,6 +264,278 @@ bool BattleBotAI::ShouldIgnoreCombat() const
      return false;
  }
  
@@ -979,6 +979,28 @@ index 0f9974c02..f96269e36 100644
 +    if (!target || !target->IsAlive() || target->GetMap() != me->GetMap() || target->GetDistance(me) > 100.0f)
 +    {
 +        EndOutdoorRival();
++        return;
++    }
++
++    // A player may escape an open-world encounter.  The rival is leashed to
++    // its original spawn position, rather than endlessly following across a
++    // zone.  It retreats first and only despawns once it has made it home.
++    if (m_outdoorRivalRetreating)
++    {
++        if (me->GetDistance2d(m_x, m_y) <= 3.0f)
++            EndOutdoorRival();
++        return;
++    }
++
++    static float const OUTDOOR_RIVAL_LEASH_DISTANCE = 85.0f;
++    if (target->GetDistance2d(m_x, m_y) > OUTDOOR_RIVAL_LEASH_DISTANCE)
++    {
++        m_outdoorRivalRetreating = true;
++        CleanupOutdoorRival();
++        me->AttackStop(true);
++        me->CombatStop(true);
++        me->GetMotionMaster()->Clear();
++        me->GetMotionMaster()->MovePoint(0, m_x, m_y, m_z, MOVE_PATHFINDING | MOVE_EXCLUDE_STEEP_SLOPES);
 +        return;
 +    }
 +
@@ -1188,7 +1210,7 @@ index 0f9974c02..f96269e36 100644
  Unit* BattleBotAI::SelectAttackTarget(Unit* pExcept) const
  {
      // Ignore attackers while carrying flag, just keep running.
-@@ -691,6 +942,18 @@ void BattleBotAI::UpdateAI(uint32 const diff)
+@@ -691,6 +964,18 @@ void BattleBotAI::UpdateAI(uint32 const diff)
          return;
      }
  
@@ -1208,7 +1230,7 @@ index 0f9974c02..f96269e36 100644
      {
          if (m_wasInBG)
 diff --git a/src/game/PlayerBots/BattleBotAI.h b/src/game/PlayerBots/BattleBotAI.h
-index b01ee2050..0b4e0fe7b 100644
+index b01ee2050..638e5c939 100644
 --- a/src/game/PlayerBots/BattleBotAI.h
 +++ b/src/game/PlayerBots/BattleBotAI.h
 @@ -36,8 +36,10 @@ enum FlagSpellsWS
@@ -1237,7 +1259,7 @@ index b01ee2050..0b4e0fe7b 100644
  
      void OnJustRevived();
      void OnJustDied();
-@@ -114,11 +122,27 @@ public:
+@@ -114,11 +122,28 @@ public:
      bool StartNewPathToPosition(Position const& position, std::vector<BattleBotPath*> const& vPaths);
      void ClearPath();
      void StopMoving();
@@ -1259,6 +1281,7 @@ index b01ee2050..0b4e0fe7b 100644
 +    uint32 m_outdoorRivalRemainingMs = 0;
 +    bool m_outdoorTargetPvpApplied = false;
 +    bool m_outdoorTargetHadPvp = false;
++    bool m_outdoorRivalRetreating = false;
 +    bool m_gurubashiArenaRival = false;
 +    ObjectGuid m_gurubashiArenaTargetGuid;
 +    bool m_debugRivalTest = false;
