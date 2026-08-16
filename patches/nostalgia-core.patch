@@ -1189,7 +1189,7 @@ index d0f79b49a..a90b4dabc 100644
  
  #endif
 diff --git a/src/game/PlayerBots/PlayerBotAI.cpp b/src/game/PlayerBots/PlayerBotAI.cpp
-index ca773b3ce..b7d8a537b 100644
+index ca773b3ce..92628f5ef 100644
 --- a/src/game/PlayerBots/PlayerBotAI.cpp
 +++ b/src/game/PlayerBots/PlayerBotAI.cpp
 @@ -75,7 +75,9 @@ enum
@@ -1203,6 +1203,17 @@ index ca773b3ce..b7d8a537b 100644
      normalizePlayerName(name);
  
      uint8 gender;
+@@ -121,6 +123,10 @@ bool PlayerBotAI::SpawnNewPlayer(WorldSession* sess, uint8 class_, uint32 race_,
+     }
+     // Generate position
+     Map* map = sMapMgr.FindMap(mapId, instanceId);
++    // Static event bots can be created before any player has entered their continent.
++    // Create that continent map on demand so they do not fail their initial login.
++    if (!map)
++        map = sMapMgr.CreateMap(mapId, newChar);
+     if (!map)
+     {
+         sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "PlayerBotAI::SpawnNewPlayer: Map (%u, %u) not found!", mapId, instanceId);
 diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
 index 4475bdc50..aa5b8905c 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.cpp
