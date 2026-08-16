@@ -1208,7 +1208,7 @@ index 0f9974c02..f96269e36 100644
      {
          if (m_wasInBG)
 diff --git a/src/game/PlayerBots/BattleBotAI.h b/src/game/PlayerBots/BattleBotAI.h
-index b01ee2050..4d270d065 100644
+index b01ee2050..0b4e0fe7b 100644
 --- a/src/game/PlayerBots/BattleBotAI.h
 +++ b/src/game/PlayerBots/BattleBotAI.h
 @@ -36,8 +36,10 @@ enum FlagSpellsWS
@@ -1218,25 +1218,26 @@ index b01ee2050..4d270d065 100644
 -    BattleBotAI(uint8 race, uint8 class_, uint8 level, uint32 mapId, uint32 instanceId, float x, float y, float z, float o, uint8 bgId, bool temporary)
 -        : CombatBotBaseAI(),  m_race(race), m_class(class_), m_level(level), m_mapId(mapId), m_instanceId(instanceId), m_x(x), m_y(y), m_z(z), m_o(o), m_battlegroundId(bgId), m_temporary(temporary)
 +    BattleBotAI(uint8 race, uint8 class_, uint8 level, uint32 mapId, uint32 instanceId, float x, float y, float z, float o, uint8 bgId, bool temporary,
-+        bool outdoorRival = false, ObjectGuid outdoorTargetGuid = ObjectGuid(), uint32 outdoorLifetimeSeconds = 0, bool gurubashiArenaRival = false)
++        bool outdoorRival = false, ObjectGuid outdoorTargetGuid = ObjectGuid(), uint32 outdoorLifetimeSeconds = 0, bool gurubashiArenaRival = false, bool debugRivalTest = false)
 +        : CombatBotBaseAI(),  m_race(race), m_class(class_), m_level(level), m_mapId(mapId), m_instanceId(instanceId), m_x(x), m_y(y), m_z(z), m_o(o), m_battlegroundId(bgId), m_temporary(temporary),
-+          m_outdoorRival(outdoorRival), m_outdoorTargetGuid(outdoorTargetGuid), m_outdoorRivalRemainingMs(outdoorLifetimeSeconds * 1000), m_gurubashiArenaRival(gurubashiArenaRival)
++          m_outdoorRival(outdoorRival), m_outdoorTargetGuid(outdoorTargetGuid), m_outdoorRivalRemainingMs(outdoorLifetimeSeconds * 1000), m_gurubashiArenaRival(gurubashiArenaRival), m_debugRivalTest(debugRivalTest)
      {
          m_updateTimer.Reset(2000);
      }
-@@ -60,6 +62,11 @@ public:
+@@ -60,6 +62,12 @@ public:
      bool AttackStart(Unit* pVictim);
      Unit* SelectAttackTarget(Unit* pExcept = nullptr) const;
      Unit* SelectFollowTarget() const;
 +    bool IsOutdoorRival() const { return m_outdoorRival; }
 +    bool IsOutdoorRivalFor(ObjectGuid targetGuid) const { return m_outdoorRival && m_outdoorTargetGuid == targetGuid; }
++    bool IsDebugOutdoorRival() const { return m_outdoorRival && m_debugRivalTest; }
 +    bool IsGurubashiArenaRival() const { return m_gurubashiArenaRival; }
 +    void SetGurubashiArenaTarget(ObjectGuid targetGuid) { m_gurubashiArenaTargetGuid = targetGuid; }
 +    void CleanupOutdoorRival();
  
      void OnJustRevived();
      void OnJustDied();
-@@ -114,11 +121,26 @@ public:
+@@ -114,11 +122,27 @@ public:
      bool StartNewPathToPosition(Position const& position, std::vector<BattleBotPath*> const& vPaths);
      void ClearPath();
      void StopMoving();
@@ -1260,6 +1261,7 @@ index b01ee2050..4d270d065 100644
 +    bool m_outdoorTargetHadPvp = false;
 +    bool m_gurubashiArenaRival = false;
 +    ObjectGuid m_gurubashiArenaTargetGuid;
++    bool m_debugRivalTest = false;
  };
  
  #endif
@@ -1335,7 +1337,7 @@ index ca773b3ce..92628f5ef 100644
      {
          sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "PlayerBotAI::SpawnNewPlayer: Map (%u, %u) not found!", mapId, instanceId);
 diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
-index 4475bdc50..561426c3d 100644
+index 4475bdc50..af8d36980 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.cpp
 +++ b/src/game/PlayerBots/PlayerBotMgr.cpp
 @@ -7,6 +7,7 @@
@@ -1533,7 +1535,7 @@ index 4475bdc50..561426c3d 100644
  bool PlayerBotMgr::AddBot(uint32 playerGUID, bool chatBot, PlayerBotAI* pAI)
  {
      uint32 accountId = 0;
-@@ -623,6 +735,520 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
+@@ -623,6 +735,511 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
      }
  }
  
@@ -1632,7 +1634,7 @@ index 4475bdc50..561426c3d 100644
 +    return count;
 +}
 +
-+bool PlayerBotMgr::AddOutdoorRival(Player* target, bool force)
++bool PlayerBotMgr::AddOutdoorRival(Player* target, bool force, bool debugTest)
 +{
 +    if (!target || (!force && !CanSpawnOutdoorRivalFor(target)) || HasOutdoorRivalFor(target->GetObjectGuid()) ||
 +        (!force && GetOutdoorRivalCount() >= m_confOutdoorRivalsMaxActive))
@@ -1657,7 +1659,7 @@ index 4475bdc50..561426c3d 100644
 +    float x, y, z;
 +    target->GetNearPoint(target, x, y, z, 0.0f, frand(28.0f, 38.0f), frand(0.0f, 2.0f * M_PI_F));
 +    BattleBotAI* ai = new BattleBotAI(botRace, botClass, target->GetLevel(), target->GetMapId(), target->GetMap()->GetInstanceId(),
-+        x, y, z, target->GetOrientation(), BATTLEGROUND_QUEUE_NONE, true, true, target->GetObjectGuid(), m_confOutdoorRivalsDurationSeconds);
++        x, y, z, target->GetOrientation(), BATTLEGROUND_QUEUE_NONE, true, true, target->GetObjectGuid(), m_confOutdoorRivalsDurationSeconds, false, debugTest);
 +
 +    if (!AddBot(ai))
 +    {
@@ -1693,12 +1695,13 @@ index 4475bdc50..561426c3d 100644
 +        return false;
 +
 +    m_rivalTestTargetGuid = target->GetObjectGuid();
-+    m_rivalTestArena = IsInGurubashiArena(target);
++    // The command-line test is always an outdoor-rival test. Gurubashi has
++    // its own permanent rival system and must not be changed by this command.
++    m_rivalTestArena = false;
 +    m_rivalTestSpawnTime = sWorld.GetGameTime() + 10;
 +    m_rivalTestLastCountdown = 0;
 +
-+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Rival-Test] Test fuer %s gestartet: Rivalen erscheinen in 10 Sekunden (%s).",
-+        target->GetName(), m_rivalTestArena ? "Gurubashi-Arena" : "Open World");
++    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Rival-Test] Open-World-Test fuer %s gestartet: Rivale erscheint in 10 Sekunden.", target->GetName());
 +    return true;
 +}
 +
@@ -1709,6 +1712,24 @@ index 4475bdc50..561426c3d 100644
 +    m_gurubashiArenaTestExpiry = 0;
 +    m_rivalTestTargetGuid.Clear();
 +    m_rivalTestArena = false;
++
++    // Debug tests are explicitly cancellable. Do not touch normal outdoor
++    // encounters or the permanent Gurubashi rivals here.
++    for (auto const& itr : m_bots)
++    {
++        BattleBotAI* battleBot = dynamic_cast<BattleBotAI*>(itr.second->ai.get());
++        if (!battleBot || !battleBot->IsDebugOutdoorRival())
++            continue;
++
++        battleBot->CleanupOutdoorRival();
++        if (battleBot->me)
++        {
++            battleBot->me->AttackStop(true);
++            battleBot->me->CombatStop(true);
++            battleBot->me->StopMoving();
++        }
++        itr.second->requestRemoval = true;
++    }
 +}
 +
 +void PlayerBotMgr::UpdateRivalTest()
@@ -1736,7 +1757,6 @@ index 4475bdc50..561426c3d 100644
 +    }
 +
 +    Player* target = ObjectAccessor::FindPlayer(m_rivalTestTargetGuid);
-+    bool const arenaTest = m_rivalTestArena && IsInGurubashiArena(target);
 +    m_rivalTestSpawnTime = 0;
 +    m_rivalTestLastCountdown = 0;
 +    m_rivalTestTargetGuid.Clear();
@@ -1748,34 +1768,7 @@ index 4475bdc50..561426c3d 100644
 +        return;
 +    }
 +
-+    if (arenaTest)
-+    {
-+        if (!m_gurubashiArenaChestKnown)
-+        {
-+            // A GM test can run between chest events. Use the GM's floor
-+            // position as the temporary center until the real chest appears.
-+            m_gurubashiArenaChestKnown = true;
-+            m_gurubashiArenaChestX = target->GetPositionX();
-+            m_gurubashiArenaChestY = target->GetPositionY();
-+            m_gurubashiArenaChestZ = target->GetPositionZ();
-+        }
-+
-+        bool hasArenaRivals = false;
-+        for (auto const& itr : m_bots)
-+            if (BattleBotAI const* battleBot = dynamic_cast<BattleBotAI const*>(itr.second->ai.get()))
-+                if (battleBot->IsGurubashiArenaRival() && !itr.second->requestRemoval)
-+                    hasArenaRivals = true;
-+
-+        if (!hasArenaRivals)
-+            AddGurubashiArenaRivals(3);
-+        m_gurubashiArenaRivalTargetCount = 3;
-+        m_gurubashiArenaNextRotation = now + HOUR;
-+        m_gurubashiArenaTestExpiry = now + 120;
-+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Rival-Test] Drei Arena-Rivalen fuer 120 Sekunden bereitgestellt.");
-+        return;
-+    }
-+
-+    if (AddOutdoorRival(target, true))
++    if (AddOutdoorRival(target, true, true))
 +        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Rival-Test] Open-World-Rivale fuer %s erstellt.", target->GetName());
 +    else
 +        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Rival-Test] Open-World-Rivale konnte nicht erstellt werden.");
@@ -2054,30 +2047,39 @@ index 4475bdc50..561426c3d 100644
  void PlayerBotMgr::DeleteBattleBots()
  {
      for (auto const& itr : m_bots)
-@@ -2038,3 +2664,92 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
+@@ -2038,3 +2655,100 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
      PSendSysMessage("Showing %u paths for battleground.", id);
      return true;
  }
 +
 +bool ChatHandler::HandleOutdoorRivalDebugCommand(char* args)
 +{
-+    bool enabled = !sPlayerBotMgr.IsOutdoorRivalDebug();
-+    if (char* option = ExtractArg(&args))
++    char* option = ExtractArg(&args);
++    if (!option || (strcmp(option, "on") != 0 && strcmp(option, "off") != 0))
 +    {
-+        if (strcmp(option, "on") == 0)
-+            enabled = true;
-+        else if (strcmp(option, "off") == 0)
-+            enabled = false;
-+        else
-+        {
-+            SendSysMessage("Benutzung: .rival debug [on|off]");
-+            SetSentErrorMessage(true);
-+            return false;
-+        }
++        SendSysMessage("Benutzung: .rival debug on | .rival debug off");
++        SetSentErrorMessage(true);
++        return false;
 +    }
 +
-+    sPlayerBotMgr.SetOutdoorRivalDebug(enabled);
-+    PSendSysMessage("Rival-Debug ist jetzt %s. Der Status wird in diesem Chat und in der Serverkonsole angezeigt.", enabled ? "AN" : "AUS");
++    if (strcmp(option, "off") == 0)
++    {
++        sPlayerBotMgr.CancelRivalTest();
++        sPlayerBotMgr.SetOutdoorRivalDebug(false);
++        SendSysMessage("Rival-Debug beendet. Ein laufender Test-Rivale wird entfernt.");
++        return true;
++    }
++
++    Player* player = GetSession() ? GetSession()->GetPlayer() : nullptr;
++    if (!player || !sPlayerBotMgr.StartRivalTest(player))
++    {
++        SendSysMessage("Ein Rivalen-Test laeuft bereits oder dein Charakter ist nicht in der Welt.");
++        SetSentErrorMessage(true);
++        return false;
++    }
++
++    sPlayerBotMgr.SetOutdoorRivalDebug(true);
++    SendSysMessage("Rival-Debug AN: Open-World-Test startet, Countdown laeuft in der Serverkonsole.");
 +    return true;
 +}
 +
@@ -2087,7 +2089,7 @@ index 4475bdc50..561426c3d 100644
 +        sPlayerBotMgr.GetOutdoorRivalCount(), sPlayerBotMgr.GetOutdoorRivalMaxActive(), sPlayerBotMgr.GetOutdoorRivalChance(),
 +        sPlayerBotMgr.GetOutdoorRivalEnemyChance(), sPlayerBotMgr.GetOutdoorRivalCheckSeconds(),
 +        sPlayerBotMgr.IsOutdoorRivalDebug() ? "AN" : "AUS");
-+    SendSysMessage("Befehle: .rival debug [on|off] | .rival status | .rival test");
++    SendSysMessage("Befehle: .rival debug on | .rival debug off | .rival status | .rival test");
 +    return true;
 +}
 +
@@ -2115,8 +2117,7 @@ index 4475bdc50..561426c3d 100644
 +        return false;
 +    }
 +
-+    PSendSysMessage("Rivalen-Test gestartet. In 10 Sekunden erscheinen %s.",
-+        player->GetMapId() == 0 && player->GetDistance2d(-13261.0f, 167.0f) <= 70.0f ? "drei Arena-Rivalen" : "ein Open-World-Rivale");
++    PSendSysMessage("Rivalen-Test gestartet. In 10 Sekunden erscheint ein Open-World-Rivale.");
 +    return true;
 +}
 +
@@ -2148,7 +2149,7 @@ index 4475bdc50..561426c3d 100644
 +
 +
 diff --git a/src/game/PlayerBots/PlayerBotMgr.h b/src/game/PlayerBots/PlayerBotMgr.h
-index a1067512a..6136c02e9 100644
+index a1067512a..008a1def5 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.h
 +++ b/src/game/PlayerBots/PlayerBotMgr.h
 @@ -11,6 +11,7 @@
@@ -2174,7 +2175,7 @@ index a1067512a..6136c02e9 100644
          bool DeleteRandomBot();
  
          void AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam, uint32 botLevel, bool temporary);
-+        bool AddOutdoorRival(Player* target, bool force = false);
++        bool AddOutdoorRival(Player* target, bool force = false, bool debugTest = false);
 +        bool StartRivalTest(Player* target);
 +        void CancelRivalTest();
 +        void SetOutdoorRivalDebug(bool enabled) { m_confOutdoorRivalsDebug = enabled; }
