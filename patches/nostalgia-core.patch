@@ -736,7 +736,7 @@ index c80994838..efd2bfc65 100644
  
      if (pChar)
 diff --git a/src/game/Objects/GameObject.cpp b/src/game/Objects/GameObject.cpp
-index 7f3c8a4f6..c0758ebcd 100644
+index 7f3c8a4f6..221b61270 100644
 --- a/src/game/Objects/GameObject.cpp
 +++ b/src/game/Objects/GameObject.cpp
 @@ -31,6 +31,7 @@
@@ -759,6 +759,18 @@ index 7f3c8a4f6..c0758ebcd 100644
          if (sScriptMgr.OnGameObjectUse((Player*)user, this))
              return;
      }
+@@ -2251,6 +2257,11 @@ void GameObject::SetLootState(LootState state)
+     m_lootState = state;
+     UpdateCollisionState();
+ 
++    // The Gurubashi chest is gone after it has been looted. Remove the
++    // temporary arena rivals at the same moment rather than polling grids.
++    if (GetEntry() == 179697 && state == GO_JUST_DEACTIVATED)
++        sPlayerBotMgr.OnGurubashiArenaChestRemoved();
++
+     // Call for GameObjectAI script
+     if (m_AI)
+         m_AI->OnLootStateChange();
 diff --git a/src/game/Objects/Player.cpp b/src/game/Objects/Player.cpp
 index dc6c0fe81..3d0ac06e7 100644
 --- a/src/game/Objects/Player.cpp
@@ -1289,7 +1301,7 @@ index ca773b3ce..92628f5ef 100644
      {
          sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "PlayerBotAI::SpawnNewPlayer: Map (%u, %u) not found!", mapId, instanceId);
 diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
-index 4475bdc50..8ccbade3d 100644
+index 4475bdc50..48a07ff0d 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.cpp
 +++ b/src/game/PlayerBots/PlayerBotMgr.cpp
 @@ -7,6 +7,7 @@
@@ -1312,7 +1324,7 @@ index 4475bdc50..8ccbade3d 100644
  
  INSTANTIATE_SINGLETON_1(PlayerBotMgr);
  
-@@ -35,12 +41,28 @@ PlayerBotMgr::PlayerBotMgr()
+@@ -35,12 +41,29 @@ PlayerBotMgr::PlayerBotMgr()
      m_confEnableRandomBots      = false;
      m_confDebug                 = false;
      m_confBattleBotAutoJoin     = false;
@@ -1338,10 +1350,11 @@ index 4475bdc50..8ccbade3d 100644
 +    m_rivalTestLastCountdown = 0;
 +    m_gurubashiArenaTestExpiry = 0;
 +    m_rivalTestArena = false;
++    m_gurubashiArenaChestRemoved = false;
  }
  
  PlayerBotMgr::~PlayerBotMgr()
-@@ -58,6 +80,16 @@ void PlayerBotMgr::LoadConfig()
+@@ -58,6 +81,16 @@ void PlayerBotMgr::LoadConfig()
      m_confDebug = sConfig.GetBoolDefault("PlayerBot.Debug", false);
      m_confUpdateDiff = sConfig.GetIntDefault("PlayerBot.UpdateMs", 10000);
      m_confBattleBotAutoJoin = sConfig.GetBoolDefault("BattleBot.AutoJoin", false);
@@ -1358,16 +1371,17 @@ index 4475bdc50..8ccbade3d 100644
  
      if (!sWorld.getConfig(CONFIG_BOOL_FORCE_LOGOUT_DELAY))
          m_tempBots.clear();
-@@ -70,6 +102,8 @@ void PlayerBotMgr::Load()
+@@ -70,6 +103,9 @@ void PlayerBotMgr::Load()
      m_bots.clear();
      m_tempBots.clear();
      m_totalChance = 0;
 +    m_outdoorRivalCooldowns.clear();
 +    CancelRivalTest();
++    m_gurubashiArenaChestRemoved = false;
  
      // 2- Configuration
      LoadConfig();
-@@ -219,6 +253,21 @@ void PlayerBotMgr::Update(uint32 diff)
+@@ -219,6 +255,21 @@ void PlayerBotMgr::Update(uint32 diff)
      }
  
      m_elapsedTime += diff;
@@ -1389,7 +1403,7 @@ index 4475bdc50..8ccbade3d 100644
      if (!((m_elapsedTime - m_lastUpdate) > m_confUpdateDiff))
          return; // No need to update
      m_lastUpdate = m_elapsedTime;
-@@ -237,6 +286,9 @@ void PlayerBotMgr::Update(uint32 diff)
+@@ -237,6 +288,9 @@ void PlayerBotMgr::Update(uint32 diff)
              {
                  if (iter->second->ai && iter->second->ai->me)
                  {
@@ -1399,7 +1413,7 @@ index 4475bdc50..8ccbade3d 100644
                      if (!iter->second->ai->me->IsAlive())
                      {
                          // don't leave permanent corpse
-@@ -302,6 +354,9 @@ void PlayerBotMgr::Update(uint32 diff)
+@@ -302,6 +356,9 @@ void PlayerBotMgr::Update(uint32 diff)
          ++iter;
      }
  
@@ -1409,7 +1423,7 @@ index 4475bdc50..8ccbade3d 100644
      if (m_confBattleBotAutoJoin && (m_lastBattleBotQueueUpdate <= (sWorld.GetGameTime() - 10)))
      {
          m_lastBattleBotQueueUpdate = sWorld.GetGameTime();
-@@ -392,19 +447,65 @@ bool PlayerBotMgr::AddOrRemoveBot()
+@@ -392,19 +449,65 @@ bool PlayerBotMgr::AddOrRemoveBot()
  
  }
  
@@ -1476,7 +1490,7 @@ index 4475bdc50..8ccbade3d 100644
  bool PlayerBotMgr::AddBot(uint32 playerGUID, bool chatBot, PlayerBotAI* pAI)
  {
      uint32 accountId = 0;
-@@ -623,6 +724,426 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
+@@ -623,6 +726,446 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
      }
  }
  
@@ -1854,6 +1868,16 @@ index 4475bdc50..8ccbade3d 100644
 +    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Nostalgia] Gurubashi chest opened by %s: %u arena rivals engaging.", player->GetName(), attackers);
 +}
 +
++void PlayerBotMgr::OnGurubashiArenaChestRemoved()
++{
++    if (m_gurubashiArenaChestRemoved)
++        return;
++
++    m_gurubashiArenaChestRemoved = true;
++    DeleteGurubashiArenaRivals();
++    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Nostalgia] Gurubashi Arena chest removed: arena rivals removed.");
++}
++
 +bool PlayerBotMgr::HasGurubashiArenaChest() const
 +{
 +    static uint32 const GURUBASHI_ARENA_CHEST = 179697;
@@ -1888,7 +1912,18 @@ index 4475bdc50..8ccbade3d 100644
 +            if (battleBot->IsGurubashiArenaRival() && !itr.second->requestRemoval)
 +                ++arenaRivalCount;
 +
-+    if (m_confGurubashiArenaRivalsEnable && sGameEventMgr.IsActiveEvent(GURUBASHI_ARENA_CHEST_EVENT) && HasGurubashiArenaChest())
++    if (!sGameEventMgr.IsActiveEvent(GURUBASHI_ARENA_CHEST_EVENT))
++    {
++        m_gurubashiArenaChestRemoved = false;
++        if (arenaRivalCount)
++        {
++            DeleteGurubashiArenaRivals();
++            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Nostalgia] Gurubashi Arena chest event ended: arena rivals removed.");
++        }
++        return;
++    }
++
++    if (m_confGurubashiArenaRivalsEnable && !m_gurubashiArenaChestRemoved)
 +    {
 +        if (!arenaRivalCount)
 +            AddGurubashiArenaRivals();
@@ -1896,14 +1931,13 @@ index 4475bdc50..8ccbade3d 100644
 +    else if (arenaRivalCount)
 +    {
 +        DeleteGurubashiArenaRivals();
-+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Nostalgia] Gurubashi Arena chest unavailable: arena rivals removed.");
 +    }
 +}
 +
  void PlayerBotMgr::DeleteBattleBots()
  {
      for (auto const& itr : m_bots)
-@@ -2038,3 +2559,92 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
+@@ -2038,3 +2581,92 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
      PSendSysMessage("Showing %u paths for battleground.", id);
      return true;
  }
@@ -1997,7 +2031,7 @@ index 4475bdc50..8ccbade3d 100644
 +
 +
 diff --git a/src/game/PlayerBots/PlayerBotMgr.h b/src/game/PlayerBots/PlayerBotMgr.h
-index a1067512a..175fb71cf 100644
+index a1067512a..9bb86ec2b 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.h
 +++ b/src/game/PlayerBots/PlayerBotMgr.h
 @@ -79,8 +79,9 @@ class PlayerBotMgr
@@ -2011,7 +2045,7 @@ index a1067512a..175fb71cf 100644
          bool DeleteBot(std::map<uint64, std::shared_ptr<PlayerBotEntry>>::iterator iter);
          bool DeleteBot(uint32 playerGuid);
  
-@@ -88,7 +89,18 @@ class PlayerBotMgr
+@@ -88,7 +89,19 @@ class PlayerBotMgr
          bool DeleteRandomBot();
  
          void AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam, uint32 botLevel, bool temporary);
@@ -2027,10 +2061,11 @@ index a1067512a..175fb71cf 100644
 +        uint32 GetOutdoorRivalCheckSeconds() const { return m_confOutdoorRivalsCheckSeconds; }
          void DeleteBattleBots();
 +        void OnGurubashiArenaChestOpened(Player* player);
++        void OnGurubashiArenaChestRemoved();
  
          void DeleteAll();
          void AddAllBots();
-@@ -108,6 +120,19 @@ class PlayerBotMgr
+@@ -108,6 +121,19 @@ class PlayerBotMgr
          PlayerBotStats& GetStats(){ return m_stats; }
          void Start() { m_confEnableRandomBots = true; }
      protected:
@@ -2050,7 +2085,7 @@ index a1067512a..175fb71cf 100644
          // How long since last update?
          uint32 m_elapsedTime;
          uint32 m_lastBotsRefresh;
-@@ -115,6 +140,13 @@ class PlayerBotMgr
+@@ -115,6 +141,14 @@ class PlayerBotMgr
          uint32 m_totalChance;
          uint32 m_maxAccountId;
          time_t m_lastBattleBotQueueUpdate;
@@ -2061,10 +2096,11 @@ index a1067512a..175fb71cf 100644
 +        time_t m_gurubashiArenaTestExpiry;
 +        ObjectGuid m_rivalTestTargetGuid;
 +        bool m_rivalTestArena;
++        bool m_gurubashiArenaChestRemoved;
  
          std::map<uint64 /*pl guid*/, std::shared_ptr<PlayerBotEntry>> m_bots;
          std::map<uint32 /*account*/, uint32> m_tempBots;
-@@ -128,6 +160,17 @@ class PlayerBotMgr
+@@ -128,6 +162,17 @@ class PlayerBotMgr
          bool m_confDebug;
          bool m_confEnableRandomBots;
          bool m_confBattleBotAutoJoin;
