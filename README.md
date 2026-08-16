@@ -1,5 +1,9 @@
 # Nostalgia Repack
 
+<p align="center">
+  <img src="web/www/assets/nostalgia-logo.png" alt="Nostalgia" width="420">
+</p>
+
 Nostalgia is a small-group Vanilla server project based on [vMaNGOS Core](https://github.com/vmangos/core). It keeps Naxxramas as endgame content, adds player-accessible PartyBots and a nostalgic fake `/1` chat, and includes a lightweight local account and character-management page.
 
 This repository is a **build package**, not a World of Warcraft distribution. It intentionally contains no game client, MPQ files, DBC/maps, extracted game data, database dumps, player data, logs, compiled executables, Apache/PHP runtime or MariaDB runtime.
