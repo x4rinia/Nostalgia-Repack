@@ -46,7 +46,7 @@ Import `nostalgia_ambient_chat.sql` before `nostalgia_ambient_chat_who_factions.
 
 - Naxxramas endcontent; Zul'Gurub and both Ahn'Qiraj raids are locked at their entrances
 - Global `/1` chat with fake players, faction-aware `/who`, whisper replies and fake-player PartyBot invites
-- Optional outdoor rival encounters: an opposing BattleBot challenges eligible players outside safe areas and awards normal PvP honor
+- Optional outdoor rival encounters: an opposing BattleBot challenges eligible players outside safe areas and awards normal PvP honor; enemy territory can use a higher chance and GMs can inspect it with `.rival debug` / `.rival status`
 - Player-accessible `.x` PartyBot commands and optional XBot addon
 - Shared Alliance/Horde/Booty Bay auction house plus named `Ahbot`
 - Transmogger NPCs in Stormwind and Orgrimmar

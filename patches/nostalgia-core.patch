@@ -153,7 +153,7 @@ index 5d61d1499..c89293002 100644
      private:
          ChannelMap channels;
 diff --git a/src/game/Chat/Chat.cpp b/src/game/Chat/Chat.cpp
-index 888ad0a34..e1532e214 100644
+index 888ad0a34..30471d9a9 100644
 --- a/src/game/Chat/Chat.cpp
 +++ b/src/game/Chat/Chat.cpp
 @@ -38,6 +38,8 @@
@@ -194,7 +194,32 @@ index 888ad0a34..e1532e214 100644
      static ChatCommand battleBotAddCommandTable[] =
      {
          { "alterac",    SEC_ADMINISTRATOR,      true, &ChatHandler::HandleBattleBotAddAlteracCommand, "", nullptr },
-@@ -627,7 +651,11 @@ ChatCommand * ChatHandler::getCommandTable()
+@@ -123,7 +147,7 @@ ChatCommand * ChatHandler::getCommandTable()
+         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+     };
+ 
+-    static ChatCommand battleBotCommandTable[] =
++    static ChatCommand battleBotCommandTable[] =
+     {
+         { "add",          SEC_ADMINISTRATOR,    true, nullptr,            "Add a new bot", battleBotAddCommandTable },
+         { "remove",       SEC_ADMINISTRATOR,    false, &ChatHandler::HandleBattleBotRemoveCommand,       "", nullptr },
+@@ -131,7 +155,14 @@ ChatCommand * ChatHandler::getCommandTable()
+         { "showpath",     SEC_ADMINISTRATOR,    false, &ChatHandler::HandleBattleBotShowPathCommand,     "", nullptr },
+         { "showallpaths", SEC_ADMINISTRATOR,    false, &ChatHandler::HandleBattleBotShowAllPathsCommand, "", nullptr },
+         { nullptr,        0,                    false, nullptr,                                          "", nullptr },
+-    };
++    };
++
++    static ChatCommand outdoorRivalCommandTable[] =
++    {
++        { "debug",  SEC_GAMEMASTER, true,  &ChatHandler::HandleOutdoorRivalDebugCommand,  "Toggle outdoor rival debug output", nullptr },
++        { "status", SEC_GAMEMASTER, false, &ChatHandler::HandleOutdoorRivalStatusCommand, "Show outdoor rival status", nullptr },
++        { nullptr,   0,               false, nullptr,                                      "", nullptr },
++    };
+ 
+     static ChatCommand accountSetCommandTable[] =
+     {
+@@ -627,7 +658,11 @@ ChatCommand * ChatHandler::getCommandTable()
          { "parry",          SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifyParryCommand,         "", nullptr },
          { "combreach",      SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifyCrCommand,            "", nullptr },
          { "boundrad",       SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifyBrCommand,            "", nullptr },
@@ -207,15 +232,18 @@ index 888ad0a34..e1532e214 100644
          { "hairstyle",      SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifyHairStyleCommand,     "", nullptr },
          { "haircolor",      SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifyHairColorCommand,     "", nullptr },
          { "skincolor",      SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifySkinColorCommand,     "", nullptr },
-@@ -1217,6 +1245,7 @@ ChatCommand * ChatHandler::getCommandTable()
+@@ -1217,7 +1252,9 @@ ChatCommand * ChatHandler::getCommandTable()
          { "bot",            SEC_ADMINISTRATOR,  true, nullptr,                              "Manage bots", botCommandTable      },
          { "ahbot",          SEC_ADMINISTRATOR,  true, nullptr,                            "Manage AH bot", ahbotCommandTable    },
          { "partybot",       SEC_ADMINISTRATOR,  false, nullptr,                       "Manage party bots", partyBotCommandTable },
+-        { "battlebot",      SEC_ADMINISTRATOR,  true, nullptr,                      "Manage battle bots", battleBotCommandTable},
 +        { "x",              SEC_PLAYER,         false, nullptr,                          "",               xCommandTable},
-         { "battlebot",      SEC_ADMINISTRATOR,  true, nullptr,                      "Manage battle bots", battleBotCommandTable},
++        { "battlebot",      SEC_ADMINISTRATOR,  true, nullptr,                      "Manage battle bots", battleBotCommandTable},
++        { "rival",          SEC_GAMEMASTER,     true, nullptr,                      "Manage outdoor rivals", outdoorRivalCommandTable},
          { "world",          SEC_ADMINISTRATOR,  false, nullptr,                                        "", worldCommandTable    },
          { "possess",        SEC_GAMEMASTER,     false, &ChatHandler::HandlePossessCommand,             "", nullptr              },
-@@ -1312,6 +1341,7 @@ ChatCommand * ChatHandler::getCommandTable()
+         { "cinematic",      SEC_DEVELOPER,      false, nullptr,                                        "", cinematicCommandTable},
+@@ -1312,6 +1349,7 @@ ChatCommand * ChatHandler::getCommandTable()
          { "gold",           SEC_BASIC_ADMIN,    true, nullptr,                                         "", goldCommandTable },
          { "wareffort",      SEC_DEVELOPER,      true, nullptr,                                         "", warEffortCommandTable },
          { nullptr,          0,                  false, nullptr,                                        "", nullptr }
@@ -223,7 +251,7 @@ index 888ad0a34..e1532e214 100644
      };
  
      if (m_loadCommandTable)
-@@ -4083,3 +4113,335 @@ char const* NullChatHandler::GetMangosString(int32 entry) const
+@@ -4083,3 +4121,335 @@ char const* NullChatHandler::GetMangosString(int32 entry) const
      return sObjectMgr.GetMangosStringForDBCLocale(entry);
  }
  
@@ -560,7 +588,7 @@ index 888ad0a34..e1532e214 100644
 +    }
 +}
 diff --git a/src/game/Chat/Chat.h b/src/game/Chat/Chat.h
-index 00cae03b8..d6c824891 100644
+index 00cae03b8..2f5cdbd3a 100644
 --- a/src/game/Chat/Chat.h
 +++ b/src/game/Chat/Chat.h
 @@ -297,6 +297,27 @@ class ChatHandler
@@ -591,9 +619,12 @@ index 00cae03b8..d6c824891 100644
          bool HandleBattleBotAddCommand(char* args, uint8 bg);
          bool HandleBattleBotAddAlteracCommand(char* args);
          bool HandleBattleBotAddArathiCommand(char* args);
-@@ -306,6 +327,7 @@ class ChatHandler
+@@ -305,7 +326,10 @@ class ChatHandler
+         bool HandleBattleBotRemoveAllCommand(char* args);
          bool HandleBattleBotShowPathCommand(char* args);
          bool HandleBattleBotShowAllPathsCommand(char* args);
++        bool HandleOutdoorRivalDebugCommand(char* args);
++        bool HandleOutdoorRivalStatusCommand(char* args);
  
 +       
          // spell_disabled
@@ -1092,29 +1123,33 @@ index ca773b3ce..b7d8a537b 100644
  
      uint8 gender;
 diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
-index 4475bdc50..cd904b69a 100644
+index 4475bdc50..f11eb8fca 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.cpp
 +++ b/src/game/PlayerBots/PlayerBotMgr.cpp
-@@ -18,6 +18,8 @@
+@@ -18,6 +18,10 @@
  #include "Language.h"
  #include "Utilities/Random.h"
  #include "Spell.h"
 +#include "Database/DBCEnums.h"
 +#include "Database/DBCStructure.h"
++
++#include <sstream>
  
  INSTANTIATE_SINGLETON_1(PlayerBotMgr);
  
-@@ -35,12 +37,20 @@ PlayerBotMgr::PlayerBotMgr()
+@@ -35,12 +39,22 @@ PlayerBotMgr::PlayerBotMgr()
      m_confEnableRandomBots      = false;
      m_confDebug                 = false;
      m_confBattleBotAutoJoin     = false;
 +    m_confOutdoorRivalsEnable   = false;
 +    m_confOutdoorRivalsChance   = 25;
++    m_confOutdoorRivalsEnemyChance = 65;
 +    m_confOutdoorRivalsCheckSeconds = 300;
 +    m_confOutdoorRivalsCooldownSeconds = 1800;
 +    m_confOutdoorRivalsMinLevel = 20;
 +    m_confOutdoorRivalsDurationSeconds = 180;
 +    m_confOutdoorRivalsMaxActive = 1;
++    m_confOutdoorRivalsDebug = false;
  
      // Time
      m_elapsedTime = 0;
@@ -1125,21 +1160,23 @@ index 4475bdc50..cd904b69a 100644
  }
  
  PlayerBotMgr::~PlayerBotMgr()
-@@ -58,6 +68,13 @@ void PlayerBotMgr::LoadConfig()
+@@ -58,6 +72,15 @@ void PlayerBotMgr::LoadConfig()
      m_confDebug = sConfig.GetBoolDefault("PlayerBot.Debug", false);
      m_confUpdateDiff = sConfig.GetIntDefault("PlayerBot.UpdateMs", 10000);
      m_confBattleBotAutoJoin = sConfig.GetBoolDefault("BattleBot.AutoJoin", false);
 +    m_confOutdoorRivalsEnable = sConfig.GetBoolDefault("Nostalgia.OutdoorRivals.Enable", false);
 +    m_confOutdoorRivalsChance = std::min<uint32>(100, sConfig.GetIntDefault("Nostalgia.OutdoorRivals.Chance", 25));
++    m_confOutdoorRivalsEnemyChance = std::min<uint32>(100, sConfig.GetIntDefault("Nostalgia.OutdoorRivals.EnemyChance", 65));
 +    m_confOutdoorRivalsCheckSeconds = std::max<uint32>(10, sConfig.GetIntDefault("Nostalgia.OutdoorRivals.CheckSeconds", 300));
 +    m_confOutdoorRivalsCooldownSeconds = std::max<uint32>(60, sConfig.GetIntDefault("Nostalgia.OutdoorRivals.CooldownSeconds", 1800));
 +    m_confOutdoorRivalsMinLevel = std::min<uint32>(MAX_LEVEL, std::max<uint32>(1, sConfig.GetIntDefault("Nostalgia.OutdoorRivals.MinLevel", 20)));
 +    m_confOutdoorRivalsDurationSeconds = std::max<uint32>(30, sConfig.GetIntDefault("Nostalgia.OutdoorRivals.DurationSeconds", 180));
 +    m_confOutdoorRivalsMaxActive = std::max<uint32>(1, sConfig.GetIntDefault("Nostalgia.OutdoorRivals.MaxActive", 1));
++    m_confOutdoorRivalsDebug = sConfig.GetBoolDefault("Nostalgia.OutdoorRivals.Debug", false);
  
      if (!sWorld.getConfig(CONFIG_BOOL_FORCE_LOGOUT_DELAY))
          m_tempBots.clear();
-@@ -70,6 +87,7 @@ void PlayerBotMgr::Load()
+@@ -70,6 +93,7 @@ void PlayerBotMgr::Load()
      m_bots.clear();
      m_tempBots.clear();
      m_totalChance = 0;
@@ -1147,7 +1184,7 @@ index 4475bdc50..cd904b69a 100644
  
      // 2- Configuration
      LoadConfig();
-@@ -237,6 +255,9 @@ void PlayerBotMgr::Update(uint32 diff)
+@@ -237,6 +261,9 @@ void PlayerBotMgr::Update(uint32 diff)
              {
                  if (iter->second->ai && iter->second->ai->me)
                  {
@@ -1157,7 +1194,7 @@ index 4475bdc50..cd904b69a 100644
                      if (!iter->second->ai->me->IsAlive())
                      {
                          // don't leave permanent corpse
-@@ -302,6 +323,8 @@ void PlayerBotMgr::Update(uint32 diff)
+@@ -302,6 +329,8 @@ void PlayerBotMgr::Update(uint32 diff)
          ++iter;
      }
  
@@ -1166,7 +1203,7 @@ index 4475bdc50..cd904b69a 100644
      if (m_confBattleBotAutoJoin && (m_lastBattleBotQueueUpdate <= (sWorld.GetGameTime() - 10)))
      {
          m_lastBattleBotQueueUpdate = sWorld.GetGameTime();
-@@ -392,19 +415,65 @@ bool PlayerBotMgr::AddOrRemoveBot()
+@@ -392,19 +421,65 @@ bool PlayerBotMgr::AddOrRemoveBot()
  
  }
  
@@ -1233,29 +1270,82 @@ index 4475bdc50..cd904b69a 100644
  bool PlayerBotMgr::AddBot(uint32 playerGUID, bool chatBot, PlayerBotAI* pAI)
  {
      uint32 accountId = 0;
-@@ -623,6 +692,116 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
+@@ -623,6 +698,206 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
      }
  }
  
-+bool PlayerBotMgr::CanSpawnOutdoorRivalFor(Player const* target) const
++bool PlayerBotMgr::CanSpawnOutdoorRivalFor(Player const* target, std::string* reason) const
 +{
-+    if (!target || !target->IsInWorld() || !target->IsAlive() || target->IsGameMaster() || target->IsTaxiFlying() ||
-+        target->IsInCombat() || target->InBattleGround() || target->GetLevel() < m_confOutdoorRivalsMinLevel)
++    auto reject = [reason](char const* text)
++    {
++        if (reason)
++            *reason = text;
 +        return false;
++    };
++
++    if (!target)
++        return reject("kein Spieler");
++    if (!target->IsInWorld())
++        return reject("nicht in der Welt");
++    if (!target->IsAlive())
++        return reject("tot");
++    if (target->IsGameMaster())
++        return reject("GM-Charakter");
++    if (target->IsTaxiFlying())
++        return reject("auf Flugroute");
++    if (target->IsInCombat())
++        return reject("im Kampf");
++    if (target->InBattleGround())
++        return reject("im Schlachtfeld");
++    if (target->GetLevel() < m_confOutdoorRivalsMinLevel)
++        return reject("Stufe zu niedrig");
 +
 +    Map const* map = target->GetMap();
 +    if (!map || !map->IsContinent() || target->GetTransport())
-+        return false;
++        return reject("keine passende Aussenwelt");
 +
 +    // Inns, capitals, towns and arenas are deliberately excluded from surprise encounters.
 +    if (target->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING))
-+        return false;
++        return reject("sicherer Ruhebereich");
 +
 +    if (AreaEntry const* area = AreaEntry::GetById(target->GetAreaId()))
 +        if (area->Flags & (AREA_FLAG_CAPITAL | AREA_FLAG_CITY | AREA_FLAG_ARENA))
-+            return false;
++            return reject("Stadt oder Arena");
 +
 +    return true;
++}
++
++bool PlayerBotMgr::IsOutdoorRivalEnemyTerritory(Player const* target) const
++{
++    if (!target)
++        return false;
++
++    AreaEntry const* zone = AreaEntry::GetById(target->GetZoneId());
++    if (!zone)
++        return false;
++
++    return (zone->Team == AREATEAM_ALLY && target->GetTeam() == HORDE) ||
++           (zone->Team == AREATEAM_HORDE && target->GetTeam() == ALLIANCE);
++}
++
++uint32 PlayerBotMgr::GetOutdoorRivalChanceFor(Player const* target) const
++{
++    return IsOutdoorRivalEnemyTerritory(target) ? m_confOutdoorRivalsEnemyChance : m_confOutdoorRivalsChance;
++}
++
++void PlayerBotMgr::NotifyOutdoorRivalDebug(std::string const& message) const
++{
++    if (!m_confOutdoorRivalsDebug)
++        return;
++
++    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Rival-Debug] %s", message.c_str());
++    for (auto const& itr : sWorld.GetAllSessions())
++    {
++        WorldSession* session = itr.second;
++        Player* player = session ? session->GetPlayer() : nullptr;
++        if (player && player->IsGameMaster())
++            ChatHandler(player).PSendSysMessage("|cff4dc3ff[Rival-Debug]|r %s", message.c_str());
++    }
 +}
 +
 +bool PlayerBotMgr::HasOutdoorRivalFor(ObjectGuid targetGuid) const
@@ -1308,13 +1398,17 @@ index 4475bdc50..cd904b69a 100644
 +    }
 +
 +    ChatHandler(target).SendSysMessage("|cff4dc3ff[Nostalgia]|r Ein feindlicher Rivale ist in der Naehe!");
-+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Nostalgia] Outdoor rival spawned for %s (level %u).", target->GetName(), target->GetLevel());
++    std::ostringstream spawnMessage;
++    spawnMessage << "Rivale fuer " << target->GetName() << " (Stufe " << target->GetLevel() << ", "
++        << (IsOutdoorRivalEnemyTerritory(target) ? "feindliches Gebiet" : "neutrales/eigenes Gebiet") << ") erstellt.";
++    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Nostalgia] %s", spawnMessage.str().c_str());
++    NotifyOutdoorRivalDebug(spawnMessage.str());
 +    return true;
 +}
 +
 +void PlayerBotMgr::UpdateOutdoorRivals()
 +{
-+    if (!m_confOutdoorRivalsEnable || !m_confOutdoorRivalsChance)
++    if (!m_confOutdoorRivalsEnable || (!m_confOutdoorRivalsChance && !m_confOutdoorRivalsEnemyChance))
 +        return;
 +
 +    time_t const now = sWorld.GetGameTime();
@@ -1322,25 +1416,58 @@ index 4475bdc50..cd904b69a 100644
 +        return;
 +    m_lastOutdoorRivalCheck = now;
 +
++    {
++        std::ostringstream message;
++        message << "Pruefung gestartet: " << GetOutdoorRivalCount() << "/" << m_confOutdoorRivalsMaxActive << " Rivalen aktiv.";
++        NotifyOutdoorRivalDebug(message.str());
++    }
++
 +    for (auto const& itr : sWorld.GetAllSessions())
 +    {
 +        if (GetOutdoorRivalCount() >= m_confOutdoorRivalsMaxActive)
++        {
++            NotifyOutdoorRivalDebug("Pruefung beendet: maximales Rivalen-Limit erreicht.");
 +            return;
++        }
 +
 +        WorldSession* session = itr.second;
 +        if (!session || session->GetBot())
 +            continue;
 +
 +        Player* target = session->GetPlayer();
-+        if (!CanSpawnOutdoorRivalFor(target) || HasOutdoorRivalFor(target->GetObjectGuid()))
++        std::string reason;
++        if (!CanSpawnOutdoorRivalFor(target, &reason))
++        {
++            if (target)
++                NotifyOutdoorRivalDebug(std::string(target->GetName()) + " uebersprungen: " + reason + ".");
 +            continue;
++        }
++
++        if (HasOutdoorRivalFor(target->GetObjectGuid()))
++        {
++            NotifyOutdoorRivalDebug(std::string(target->GetName()) + " uebersprungen: hat bereits einen Rivalen.");
++            continue;
++        }
 +
 +        auto cooldown = m_outdoorRivalCooldowns.find(target->GetObjectGuid());
 +        if (cooldown != m_outdoorRivalCooldowns.end() && now < cooldown->second)
++        {
++            std::ostringstream message;
++            message << target->GetName() << " uebersprungen: Abklingzeit noch " << (cooldown->second - now) << " Sekunden.";
++            NotifyOutdoorRivalDebug(message.str());
 +            continue;
++        }
 +
-+        if (urand(1, 100) > m_confOutdoorRivalsChance)
++        uint32 const chance = GetOutdoorRivalChanceFor(target);
++        uint32 const roll = urand(1, 100);
++        if (roll > chance)
++        {
++            std::ostringstream message;
++            message << target->GetName() << ": Wurf " << roll << "/100 gegen " << chance << "% ("
++                << (IsOutdoorRivalEnemyTerritory(target) ? "feindliches Gebiet" : "neutrales/eigenes Gebiet") << ").";
++            NotifyOutdoorRivalDebug(message.str());
 +            continue;
++        }
 +
 +        if (AddOutdoorRival(target))
 +            m_outdoorRivalCooldowns[target->GetObjectGuid()] = now + m_confOutdoorRivalsCooldownSeconds;
@@ -1350,10 +1477,42 @@ index 4475bdc50..cd904b69a 100644
  void PlayerBotMgr::DeleteBattleBots()
  {
      for (auto const& itr : m_bots)
-@@ -2038,3 +2217,31 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
+@@ -2038,3 +2313,63 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
      PSendSysMessage("Showing %u paths for battleground.", id);
      return true;
  }
++
++bool ChatHandler::HandleOutdoorRivalDebugCommand(char* args)
++{
++    bool enabled = !sPlayerBotMgr.IsOutdoorRivalDebug();
++    if (char* option = ExtractArg(&args))
++    {
++        if (strcmp(option, "on") == 0)
++            enabled = true;
++        else if (strcmp(option, "off") == 0)
++            enabled = false;
++        else
++        {
++            SendSysMessage("Benutzung: .rival debug [on|off]");
++            SetSentErrorMessage(true);
++            return false;
++        }
++    }
++
++    sPlayerBotMgr.SetOutdoorRivalDebug(enabled);
++    PSendSysMessage("Rival-Debug ist jetzt %s. Der Status wird in diesem Chat und in der Serverkonsole angezeigt.", enabled ? "AN" : "AUS");
++    return true;
++}
++
++bool ChatHandler::HandleOutdoorRivalStatusCommand(char* /*args*/)
++{
++    PSendSysMessage("Rivalen aktiv: %u/%u | normale Gebiete: %u%% | feindliche Gebiete: %u%% | Pruefung alle %u Sekunden | Debug: %s",
++        sPlayerBotMgr.GetOutdoorRivalCount(), sPlayerBotMgr.GetOutdoorRivalMaxActive(), sPlayerBotMgr.GetOutdoorRivalChance(),
++        sPlayerBotMgr.GetOutdoorRivalEnemyChance(), sPlayerBotMgr.GetOutdoorRivalCheckSeconds(),
++        sPlayerBotMgr.IsOutdoorRivalDebug() ? "AN" : "AUS");
++    SendSysMessage("Befehle: .rival debug [on|off] | .rival status");
++    return true;
++}
 +
 +bool ChatHandler::HandleXTankCommand(char* args)
 +{
@@ -1383,7 +1542,7 @@ index 4475bdc50..cd904b69a 100644
 +
 +
 diff --git a/src/game/PlayerBots/PlayerBotMgr.h b/src/game/PlayerBots/PlayerBotMgr.h
-index a1067512a..c16385f9a 100644
+index a1067512a..cf8565c32 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.h
 +++ b/src/game/PlayerBots/PlayerBotMgr.h
 @@ -79,8 +79,9 @@ class PlayerBotMgr
@@ -1397,27 +1556,36 @@ index a1067512a..c16385f9a 100644
          bool DeleteBot(std::map<uint64, std::shared_ptr<PlayerBotEntry>>::iterator iter);
          bool DeleteBot(uint32 playerGuid);
  
-@@ -88,6 +89,7 @@ class PlayerBotMgr
+@@ -88,6 +89,14 @@ class PlayerBotMgr
          bool DeleteRandomBot();
  
          void AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam, uint32 botLevel, bool temporary);
 +        bool AddOutdoorRival(Player* target);
++        void SetOutdoorRivalDebug(bool enabled) { m_confOutdoorRivalsDebug = enabled; }
++        bool IsOutdoorRivalDebug() const { return m_confOutdoorRivalsDebug; }
++        uint32 GetOutdoorRivalCount() const;
++        uint32 GetOutdoorRivalMaxActive() const { return m_confOutdoorRivalsMaxActive; }
++        uint32 GetOutdoorRivalChance() const { return m_confOutdoorRivalsChance; }
++        uint32 GetOutdoorRivalEnemyChance() const { return m_confOutdoorRivalsEnemyChance; }
++        uint32 GetOutdoorRivalCheckSeconds() const { return m_confOutdoorRivalsCheckSeconds; }
          void DeleteBattleBots();
  
          void DeleteAll();
-@@ -108,6 +110,11 @@ class PlayerBotMgr
+@@ -108,6 +117,13 @@ class PlayerBotMgr
          PlayerBotStats& GetStats(){ return m_stats; }
          void Start() { m_confEnableRandomBots = true; }
      protected:
 +        void UpdateOutdoorRivals();
-+        bool CanSpawnOutdoorRivalFor(Player const* target) const;
++        bool CanSpawnOutdoorRivalFor(Player const* target, std::string* reason = nullptr) const;
 +        bool HasOutdoorRivalFor(ObjectGuid targetGuid) const;
-+        uint32 GetOutdoorRivalCount() const;
++        bool IsOutdoorRivalEnemyTerritory(Player const* target) const;
++        uint32 GetOutdoorRivalChanceFor(Player const* target) const;
++        void NotifyOutdoorRivalDebug(std::string const& message) const;
 +
          // How long since last update?
          uint32 m_elapsedTime;
          uint32 m_lastBotsRefresh;
-@@ -115,6 +122,7 @@ class PlayerBotMgr
+@@ -115,6 +131,7 @@ class PlayerBotMgr
          uint32 m_totalChance;
          uint32 m_maxAccountId;
          time_t m_lastBattleBotQueueUpdate;
@@ -1425,17 +1593,19 @@ index a1067512a..c16385f9a 100644
  
          std::map<uint64 /*pl guid*/, std::shared_ptr<PlayerBotEntry>> m_bots;
          std::map<uint32 /*account*/, uint32> m_tempBots;
-@@ -128,6 +136,14 @@ class PlayerBotMgr
+@@ -128,6 +145,16 @@ class PlayerBotMgr
          bool m_confDebug;
          bool m_confEnableRandomBots;
          bool m_confBattleBotAutoJoin;
 +        bool m_confOutdoorRivalsEnable;
 +        uint32 m_confOutdoorRivalsChance;
++        uint32 m_confOutdoorRivalsEnemyChance;
 +        uint32 m_confOutdoorRivalsCheckSeconds;
 +        uint32 m_confOutdoorRivalsCooldownSeconds;
 +        uint32 m_confOutdoorRivalsMinLevel;
 +        uint32 m_confOutdoorRivalsDurationSeconds;
 +        uint32 m_confOutdoorRivalsMaxActive;
++        bool m_confOutdoorRivalsDebug;
 +        std::map<ObjectGuid, time_t> m_outdoorRivalCooldowns;
  };
  
@@ -1488,7 +1658,7 @@ index 6b0be9092..8c45f5404 100644
      sAccountMgr.Update(diff);
  
 diff --git a/src/mangosd/mangosd.conf.dist.in b/src/mangosd/mangosd.conf.dist.in
-index 377024547..62631d803 100644
+index 377024547..4bdc96ce3 100644
 --- a/src/mangosd/mangosd.conf.dist.in
 +++ b/src/mangosd/mangosd.conf.dist.in
 @@ -1160,6 +1160,26 @@ PetDefaultLoyalty = 1
@@ -1518,7 +1688,7 @@ index 377024547..62631d803 100644
  Spell.EffectDelay = 400
  Spell.ProcDelay = 800
  BeepAtStart = 1
-@@ -3000,6 +3020,37 @@ AHBot.itemcount = 50
+@@ -3000,6 +3020,47 @@ AHBot.itemcount = 50
  #        Default: 0 - off
  #                 1 - on
  #
@@ -1532,6 +1702,10 @@ index 377024547..62631d803 100644
 +#    Nostalgia.OutdoorRivals.Chance
 +#        Chance in percent for an eligible player on each check.
 +#        Default: 25
++#
++#    Nostalgia.OutdoorRivals.EnemyChance
++#        Chance in percent in territory controlled by the opposing faction. Neutral areas use Chance.
++#        Default: 65
 +#
 +#    Nostalgia.OutdoorRivals.CheckSeconds
 +#        Seconds between encounter checks.
@@ -1553,20 +1727,28 @@ index 377024547..62631d803 100644
 +#        Maximum simultaneous outdoor rivals across the server.
 +#        Default: 1
 +#
++#    Nostalgia.OutdoorRivals.Debug
++#        Enables detailed outdoor-rival diagnostics in the server console and for online GMs.
++#        This can also be toggled live by a GM with .rival debug [on|off].
++#        Default: 0 - off
++#                 1 - on
++#
  ###################################################################################################################
  RandomBot.Enable = 0
  RandomBot.MinBots = 0
-@@ -3019,6 +3070,14 @@ PartyBot.RandomGearLevelDifference = 10
+@@ -3019,6 +3080,16 @@ PartyBot.RandomGearLevelDifference = 10
  BattleBot.AutoEquip = 1
  BattleBot.AutoJoin = 0
  
 +Nostalgia.OutdoorRivals.Enable = 0
 +Nostalgia.OutdoorRivals.Chance = 25
++Nostalgia.OutdoorRivals.EnemyChance = 65
 +Nostalgia.OutdoorRivals.CheckSeconds = 300
 +Nostalgia.OutdoorRivals.CooldownSeconds = 1800
 +Nostalgia.OutdoorRivals.MinLevel = 20
 +Nostalgia.OutdoorRivals.DurationSeconds = 180
 +Nostalgia.OutdoorRivals.MaxActive = 1
++Nostalgia.OutdoorRivals.Debug = 0
 +
  ###################################################################################################################
  #    Mail flooding mitigation
