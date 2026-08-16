@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: XBot
+## Author: Xarinia
+## Notes: Huebsche Steuerung fuer die Nostalgia-Partybots - /xbot
+## Version: 1.4
+## SavedVariables: XBotDB
+
+xbot.lua

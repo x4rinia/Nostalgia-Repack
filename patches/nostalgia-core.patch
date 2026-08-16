@@ -1,0 +1,1569 @@
+diff --git a/src/game/AuctionHouse/AuctionHouseBotMgr.cpp b/src/game/AuctionHouse/AuctionHouseBotMgr.cpp
+index afe070dbc..e18afcc96 100644
+--- a/src/game/AuctionHouse/AuctionHouseBotMgr.cpp
++++ b/src/game/AuctionHouse/AuctionHouseBotMgr.cpp
+@@ -69,6 +69,12 @@ void AuctionHouseBotMgr::Load()
+     m_config->enable         = sConfig.GetBoolDefault("AHBot.Enable", false);
+     m_config->ahfid          = sConfig.GetIntDefault("AHBot.ah.fid", 120);
+     m_config->itemcount      = sConfig.GetIntDefault("AHBot.itemcount", 2);
++    std::string ownerName    = sConfig.GetStringDefault("AHBot.OwnerName", "Ahbot");
++    ObjectGuid ownerGuid     = sObjectMgr.GetPlayerGuidByName(ownerName);
++    m_config->owner          = ownerGuid ? ownerGuid.GetCounter() : 0;
++
++    if (!m_config->owner)
++        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "AHBot::Load() : Character '%s' was not found; AH bot listings will have no owner name.", ownerName.c_str());
+ 
+     m_auctionHouseEntry = sAuctionMgr.GetAuctionHouseEntry(m_config->ahfid);
+     if (!m_auctionHouseEntry)
+@@ -164,7 +170,7 @@ void AuctionHouseBotMgr::AddItem(AuctionHouseBotEntry e, AuctionHouseObject *auc
+     auctionEntry->auctionHouseEntry  = m_auctionHouseEntry;
+     auctionEntry->itemGuidLow        = item->GetGUIDLow();
+     auctionEntry->itemTemplate       = item->GetEntry();
+-    auctionEntry->owner              = 0;
++    auctionEntry->owner              = m_config->owner;
+     auctionEntry->startbid           = e.bid;
+     auctionEntry->buyout             = e.buyout;
+     auctionEntry->bidder             = 0;
+diff --git a/src/game/AuctionHouse/AuctionHouseBotMgr.h b/src/game/AuctionHouse/AuctionHouseBotMgr.h
+index ed3f4769a..bcb5f55b7 100644
+--- a/src/game/AuctionHouse/AuctionHouseBotMgr.h
++++ b/src/game/AuctionHouse/AuctionHouseBotMgr.h
+@@ -21,6 +21,7 @@ struct AuctionHouseBotConfig
+ {
+     uint32 itemcount;
+     uint32 ahfid;
++    uint32 owner;
+ 
+     bool enable;
+ };
+diff --git a/src/game/CMakeLists.txt b/src/game/CMakeLists.txt
+index 70cb3d8be..294462991 100644
+--- a/src/game/CMakeLists.txt
++++ b/src/game/CMakeLists.txt
+@@ -31,6 +31,7 @@ set (game_SRCS
+     InstanceStatistics.cpp
+     ItemEnchantmentMgr.cpp
+     LootMgr.cpp
++    NostalgiaAmbientChat.cpp
+     ObjectAccessor.cpp
+     ObjectGridLoader.cpp
+     ObjectGuid.cpp
+@@ -266,6 +267,7 @@ set (game_SRCS
+     ItemEnchantmentMgr.h
+     Language.h
+     LootMgr.h
++    NostalgiaAmbientChat.h
+     LoveIsInTheAir.h
+     ObjectAccessor.h
+     ObjectGridLoader.h
+diff --git a/src/game/Chat/Channel.cpp b/src/game/Chat/Channel.cpp
+index ccc13a2e1..3066f9a38 100644
+--- a/src/game/Chat/Channel.cpp
++++ b/src/game/Chat/Channel.cpp
+@@ -115,12 +115,12 @@ void Channel::Join(ObjectGuid guid, char const* password)
+         return;
+     }
+ 
+-    if (pPlayer && pPlayer->ToPlayer())
++    if (pPlayer)
+     {
+-        if (pPlayer->GetGuildId() && (GetFlags() == 0x38))
++        if (pPlayer->ToPlayer() && pPlayer->GetGuildId() && (GetFlags() == 0x38))
+             return;
+ 
+-        pPlayer->ToPlayer()->JoinedChannel(this);
++        pPlayer->JoinedChannel(this);
+     }
+ 
+     if (m_announce && (!pPlayer.get() || pPlayer->GetSession()->GetSecurity() < SEC_GAMEMASTER || !sWorld.getConfig(CONFIG_BOOL_SILENTLY_GM_JOIN_TO_CHANNEL)))
+@@ -677,6 +677,14 @@ void Channel::Say(ObjectGuid guid, char const* text, uint32 lang, bool skipCheck
+         SendToAll(&data, (!skipCheck && !m_players[guid].IsModerator()) ? guid : ObjectGuid());
+ }
+ 
++void Channel::SendExternalMessage(ObjectGuid senderGuid, char const* message, uint32 lang)
++{
++    WorldPacket packet;
++    ChatHandler::BuildChatPacket(packet, CHAT_MSG_CHANNEL, message, Language(lang), CHAT_TAG_NONE,
++        senderGuid, nullptr, ObjectGuid(), "", m_name.c_str());
++    SendToAll(&packet);
++}
++
+ void Channel::Invite(ObjectGuid guid, char const* targetName)
+ {
+     if (!IsOn(guid))
+diff --git a/src/game/Chat/Channel.h b/src/game/Chat/Channel.h
+index 7f0c9c12e..9f17350b8 100644
+--- a/src/game/Chat/Channel.h
++++ b/src/game/Chat/Channel.h
+@@ -189,15 +189,19 @@ class Channel
+         void UnsetMute(ObjectGuid guid, char const* newname) { SetMode(guid, newname, false, false); }
+         void List(PlayerPointer guid);
+         void Announce(ObjectGuid guid);
+-        void Moderate(ObjectGuid guid);
+-        void Say(ObjectGuid guid, char const* what, uint32 lang = LANG_UNIVERSAL, bool skipCheck = false);
+-        void Invite(ObjectGuid guid, char const* newp);
++        void Moderate(ObjectGuid guid);
++        void Say(ObjectGuid guid, char const* what, uint32 lang = LANG_UNIVERSAL, bool skipCheck = false);
++        void SendExternalMessage(ObjectGuid senderGuid, char const* message, uint32 lang = LANG_UNIVERSAL);
++        void Invite(ObjectGuid guid, char const* newp);
+         void Voice(ObjectGuid guid1, ObjectGuid guid2);
+         void DeVoice(ObjectGuid guid1, ObjectGuid guid2);
+-        void JoinNotify(ObjectGuid guid);                                       // invisible notify
+-        void LeaveNotify(ObjectGuid guid);                                      // invisible notify
+-
+-        /**
++        void JoinNotify(ObjectGuid guid);                                       // invisible notify
++        void LeaveNotify(ObjectGuid guid);                                      // invisible notify
++
++        // Query membership without exposing the channel's internal player list.
++        bool HasMember(ObjectGuid who) const { return IsOn(who); }
++
++        /**
+         * This creates the packet informing client that the player is not on requested \ref name channel.
+         * See also \ref MakeNotMember for non-static version.
+         */
+diff --git a/src/game/Chat/ChannelMgr.cpp b/src/game/Chat/ChannelMgr.cpp
+index e252b4208..af6710262 100644
+--- a/src/game/Chat/ChannelMgr.cpp
++++ b/src/game/Chat/ChannelMgr.cpp
+@@ -128,6 +128,13 @@ void ChannelMgr::CreateDefaultChannels()
+         channel.second->SetAnnounce(false);
+ }
+ 
++void ChannelMgr::SendExternalMessageToGeneralChannels(ObjectGuid senderGuid, char const* message, uint32 lang)
++{
++    for (const auto& channel : channels)
++        if (channel.second->GetChannelId() == CHANNEL_ID_GENERAL)
++            channel.second->SendExternalMessage(senderGuid, message, lang);
++}
++
+ void ChannelMgr::AnnounceBothFactionsChannel(std::string const& channelName, ObjectGuid playerGuid, char const* message)
+ {
+     if (Channel* c = channelMgr(HORDE)->GetJoinChannel(channelName))
+diff --git a/src/game/Chat/ChannelMgr.h b/src/game/Chat/ChannelMgr.h
+index 5d61d1499..c89293002 100644
+--- a/src/game/Chat/ChannelMgr.h
++++ b/src/game/Chat/ChannelMgr.h
+@@ -45,6 +45,7 @@ class ChannelMgr
+         Channel *GetChannel(std::string const& name, PlayerPointer p, bool pkt = true);
+         void LeftChannel(std::string const& name);
+         void CreateDefaultChannels();
++        void SendExternalMessageToGeneralChannels(ObjectGuid senderGuid, char const* message, uint32 lang = LANG_UNIVERSAL);
+         static void AnnounceBothFactionsChannel(std::string const& channelName, ObjectGuid playerGuid, char const* message);
+     private:
+         ChannelMap channels;
+diff --git a/src/game/Chat/Chat.cpp b/src/game/Chat/Chat.cpp
+index 888ad0a34..e1532e214 100644
+--- a/src/game/Chat/Chat.cpp
++++ b/src/game/Chat/Chat.cpp
+@@ -38,6 +38,8 @@
+ #include "SpellMgr.h"
+ #include "PoolManager.h"
+ #include "GameEventMgr.h"
++#include "PartyBotAI.h"
++#include "PlayerDump.h"
+ 
+ // Supported shift-links (client generated and server side)
+ // |color|Harea:area_id|h[name]|h|r
+@@ -115,6 +117,28 @@ ChatCommand * ChatHandler::getCommandTable()
+         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+     };
+ 
++static ChatCommand xCommandTable[] =
++{
++    {"tank", SEC_PLAYER, false, &ChatHandler::HandleXTankCommand, "", nullptr},
++    {"heal", SEC_PLAYER, false, &ChatHandler::HandleXHealCommand, "", nullptr},
++    {"dps", SEC_PLAYER, false, &ChatHandler::HandleXDpsCommand, "", nullptr},
++    {"follow", SEC_PLAYER, false, &ChatHandler::HandleXFollowCommand, "", nullptr},
++    {"stay", SEC_PLAYER, false, &ChatHandler::HandleXStayCommand, "", nullptr},
++    {"summon", SEC_PLAYER, false, &ChatHandler::HandleXSummonCommand, "", nullptr},
++    {"attack", SEC_PLAYER, false, &ChatHandler::HandleXAttackCommand, "", nullptr},
++    {"rezz", SEC_PLAYER, false, &ChatHandler::HandleXRezzCommand, "", nullptr},
++    {"pause", SEC_PLAYER, false, &ChatHandler::HandleXPauseCommand, "", nullptr},
++    {"unpause", SEC_PLAYER, false, &ChatHandler::HandleXUnpauseCommand, "", nullptr},
++    {"aoe", SEC_PLAYER, false, &ChatHandler::HandleXAoECommand, "", nullptr},
++    {"ccmark", SEC_PLAYER, false, &ChatHandler::HandleXCCMarkCommand, "", nullptr},
++    {"use", SEC_PLAYER, false, &ChatHandler::HandleXUseCommand, "", nullptr},
++    {"morde", SEC_PLAYER, false, &ChatHandler::HandleXMordeCommand, "", nullptr},
++    {"xp", SEC_PLAYER, false, &ChatHandler::HandleXXpCommand, "", nullptr},
++    {"save", SEC_PLAYER, false, &ChatHandler::HandleXSaveCommand, "", nullptr},
++    {"load", SEC_PLAYER, false, &ChatHandler::HandleXLoadCommand, "", nullptr},
++    {nullptr, 0, false, nullptr, "", nullptr}
++};
++
+     static ChatCommand battleBotAddCommandTable[] =
+     {
+         { "alterac",    SEC_ADMINISTRATOR,      true, &ChatHandler::HandleBattleBotAddAlteracCommand, "", nullptr },
+@@ -627,7 +651,11 @@ ChatCommand * ChatHandler::getCommandTable()
+         { "parry",          SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifyParryCommand,         "", nullptr },
+         { "combreach",      SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifyCrCommand,            "", nullptr },
+         { "boundrad",       SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifyBrCommand,            "", nullptr },
+-        { "xprate",         SEC_PLAYER,         false, &ChatHandler::HandleModifyXpRateCommand,        "", nullptr },
++                                               // Nostalgia
++                                               // .modify xprate deaktiviert.
++                                               // Bitte stattdessen den Spielerbefehl ".x xp" verwenden.
++
++                                               // { "xprate", SEC_PLAYER, false, &ChatHandler::HandleModifyXpRateCommand, "", nullptr },
+         { "hairstyle",      SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifyHairStyleCommand,     "", nullptr },
+         { "haircolor",      SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifyHairColorCommand,     "", nullptr },
+         { "skincolor",      SEC_BASIC_ADMIN,    false, &ChatHandler::HandleModifySkinColorCommand,     "", nullptr },
+@@ -1217,6 +1245,7 @@ ChatCommand * ChatHandler::getCommandTable()
+         { "bot",            SEC_ADMINISTRATOR,  true, nullptr,                              "Manage bots", botCommandTable      },
+         { "ahbot",          SEC_ADMINISTRATOR,  true, nullptr,                            "Manage AH bot", ahbotCommandTable    },
+         { "partybot",       SEC_ADMINISTRATOR,  false, nullptr,                       "Manage party bots", partyBotCommandTable },
++        { "x",              SEC_PLAYER,         false, nullptr,                          "",               xCommandTable},
+         { "battlebot",      SEC_ADMINISTRATOR,  true, nullptr,                      "Manage battle bots", battleBotCommandTable},
+         { "world",          SEC_ADMINISTRATOR,  false, nullptr,                                        "", worldCommandTable    },
+         { "possess",        SEC_GAMEMASTER,     false, &ChatHandler::HandlePossessCommand,             "", nullptr              },
+@@ -1312,6 +1341,7 @@ ChatCommand * ChatHandler::getCommandTable()
+         { "gold",           SEC_BASIC_ADMIN,    true, nullptr,                                         "", goldCommandTable },
+         { "wareffort",      SEC_DEVELOPER,      true, nullptr,                                         "", warEffortCommandTable },
+         { nullptr,          0,                  false, nullptr,                                        "", nullptr }
++     
+     };
+ 
+     if (m_loadCommandTable)
+@@ -4083,3 +4113,335 @@ char const* NullChatHandler::GetMangosString(int32 entry) const
+     return sObjectMgr.GetMangosStringForDBCLocale(entry);
+ }
+ 
++bool ChatHandler::HandleXRezzCommand(char* /*args*/)
++{
++    Unit* target = GetSelectedUnit();
++
++    if (!target)
++    {
++        SendSysMessage(LANG_SELECT_CHAR_OR_CREATURE);
++        SetSentErrorMessage(true);
++        return false;
++    }
++
++    SpellEntry const* spellInfo = sSpellMgr.GetSpellEntry(20773);
++    if (!spellInfo)
++        return false;
++
++    if (!SpellMgr::IsSpellValid(spellInfo, m_session->GetPlayer()))
++    {
++        PSendSysMessage(LANG_COMMAND_SPELL_BROKEN, 20773);
++        SetSentErrorMessage(true);
++        return false;
++    }
++
++    m_session->GetPlayer()->CastSpell(target, 20773, false);
++
++    return true;
++}
++
++bool ChatHandler::HandleXPauseCommand(char* args) { return HandlePartyBotPauseCommand(args); }
++
++bool ChatHandler::HandleXUnpauseCommand(char* args) { return HandlePartyBotUnpauseCommand(args); }
++
++bool ChatHandler::HandleXAoECommand(char* args) { return HandlePartyBotAoECommand(args); }
++
++bool ChatHandler::HandleXCCMarkCommand(char* args) { return HandlePartyBotControlMarkCommand(args); }
++
++
++
++
++bool ChatHandler::HandleXMordeCommand(char* args)
++{
++    Player* player = m_session->GetPlayer();
++
++    uint32 dishonorableKills = player->GetUInt32Value(PLAYER_FIELD_LIFETIME_DISHONORBALE_KILLS);
++
++    // Keine ruchlosen Morde
++    if (dishonorableKills == 0)
++    {
++        PSendSysMessage("Du hast keine ruchlosen Morde.");
++        return true;
++    }
++
++    // Kosten berechnen (5 Gold pro RM)
++    uint32 cost = dishonorableKills * 5 * GOLD;
++
++    // ".x morde"
++    if (!args || !*args)
++    {
++        PSendSysMessage("RM: %u", dishonorableKills);
++        PSendSysMessage("Kosten: %ug", dishonorableKills * 5);
++        PSendSysMessage("Schreibe:");
++        PSendSysMessage(".x morde gold");
++        return true;
++    }
++
++ char* param = strtok(args, " ");
++
++    if (!param || strcmp(param, "gold") != 0)
++    {
++        PSendSysMessage("Benutze: .x morde gold");
++        return true;
++    }
++
++    // Genug Gold?
++    if (player->GetMoney() < cost)
++    {
++        PSendSysMessage("Du benötigst %u Gold.", dishonorableKills * 5);
++        return true;
++    }
++
++    // Gold abziehen
++    player->ModifyMoney(-int32(cost));
++
++
++    // RM aus der Datenbank entfernen
++    CharacterDatabase.PExecute("DELETE FROM `character_honor_cp` WHERE `guid` = %u AND `type` = %u", player->GetGUIDLow(), DISHONORABLE);
++
++    // Auch aus dem aktuellen HonorMgr entfernen
++    HonorMgr& hm = player->GetHonorMgr();
++
++    HonorCPMap& cp = hm.GetHonorCP();
++
++    for (auto it = cp.begin(); it != cp.end();)
++    {
++        if (it->type == DISHONORABLE)
++            it = cp.erase(it);
++        else
++            ++it;
++    }
++
++    hm.SetStoredDK(0);
++    hm.Update();
++    hm.SaveStoredData();
++
++    player->SaveToDB();
++
++
++    PSendSysMessage("RM nach Update: %u", player->GetUInt32Value(PLAYER_FIELD_LIFETIME_DISHONORBALE_KILLS));
++
++    PSendSysMessage("Du hast alle ruchlosen Morde gesühnt.");
++    PSendSysMessage("Gesühnte Morde: %u", dishonorableKills);
++    PSendSysMessage("Bezahlt: %u Gold", dishonorableKills * 5);
++
++    return true;
++}
++
++
++bool HandleXUseHelper(Player* pTarget, GameObject* pGo)
++{
++    if (pTarget->AI())
++    {
++        if (dynamic_cast<PartyBotAI*>(pTarget->AI()))
++        {
++            if (pTarget->IsWithinDist(pGo, INTERACTION_DISTANCE))
++            {
++                pGo->Use(pTarget);
++                return true;
++            }
++        }
++    }
++
++    return false;
++}
++
++bool ChatHandler::HandleXUseCommand(char* /*args*/)
++{
++    Player* pPlayer = GetSession()->GetPlayer();
++
++    if (!pPlayer)
++        return false;
++
++    std::list<GameObject*> objects;
++
++    MaNGOS::AllWorldObjectsInRange check(pPlayer, 10.0f);
++    MaNGOS::GameObjectListSearcher<MaNGOS::AllWorldObjectsInRange> searcher(objects, check);
++
++    Cell::VisitGridObjects(pPlayer, searcher, 10.0f);
++
++    if (objects.empty())
++    {
++        SendSysMessage("Keine Spielobjekte gefunden.");
++        return false;
++    }
++
++    // Nächstgelegenes Objekt suchen
++    GameObject* pGo = nullptr;
++    float bestDist = FLT_MAX;
++
++    for (GameObject* go : objects)
++    {
++        float dist = pPlayer->GetDistance(go);
++
++        if (dist < bestDist)
++        {
++            bestDist = dist;
++            pGo = go;
++        }
++    }
++
++    if (!pGo)
++    {
++        SendSysMessage("Kein Spielobjekt gefunden.");
++        return false;
++    }
++
++    PSendSysMessage("Benutze: %s (Entry: %u)", pGo->GetName(), pGo->GetEntry());
++
++    Group* pGroup = pPlayer->GetGroup();
++    if (!pGroup)
++    {
++        SendSysMessage("Du bist in keiner Gruppe.");
++        return false;
++    }
++
++    bool ok = false;
++
++    for (GroupReference* itr = pGroup->GetFirstMember(); itr; itr = itr->next())
++    {
++        Player* pMember = itr->getSource();
++
++        if (!pMember)
++            continue;
++
++        if (pMember == pPlayer)
++            continue;
++
++        // Hier kannst du später .x summon einbauen
++
++        ok = HandleXUseHelper(pMember, pGo) || ok;
++    }
++
++    if (ok)
++        SendSysMessage("Alle PartyBots haben das Objekt benutzt.");
++    else
++        SendSysMessage("Kein PartyBot konnte das Objekt benutzen.");
++
++    return ok;
++}
++
++bool ChatHandler::HandleXXpCommand(char* args)
++{
++    if (!args || !*args)
++    {
++        SendSysMessage("=== Nostalgia XP-System ===");
++        SendSysMessage("---------------------------");
++        SendSysMessage(".x xp 1 - Blizzlike (x1)");
++        SendSysMessage(".x xp 2 - Entspannt (x3)");
++        SendSysMessage(".x xp 3 - Erhoeht (x5)");
++        SendSysMessage(".x xp 4 - Schnell (x10)");
++        SendSysMessage(".x xp 5 - Twink (x20)");
++        return true;
++    }
++
++    switch (atoi(args))
++    {
++    case 1:
++        return HandleModifyXpRateCommand((char*)"1");
++
++    case 2:
++        return HandleModifyXpRateCommand((char*)"3");
++
++    case 3:
++        return HandleModifyXpRateCommand((char*)"5");
++
++    case 4:
++        return HandleModifyXpRateCommand((char*)"10");
++
++    case 5:
++        return HandleModifyXpRateCommand((char*)"20");
++
++    default:
++        SendSysMessage("Ungueltige Auswahl.");
++        SendSysMessage(".x xp 1 - Blizzlike (x1)");
++        SendSysMessage(".x xp 2 - Entspannt (x3)");
++        SendSysMessage(".x xp 3 - Erhoeht (x5)");
++        SendSysMessage(".x xp 4 - Schnell (x10)");
++        SendSysMessage(".x xp 5 - Twink (x20)");
++        return false;
++    }
++}
++
++bool ChatHandler::HandleXSaveCommand(char* args)
++{
++    if (!args || !*args)
++    {
++        SendSysMessage("Benutzung: .x save <Dateiname>");
++        return false;
++    }
++
++    Player* player = m_session->GetPlayer();
++    if (!player)
++        return false;
++
++    player->SaveToDB();
++
++    std::string file = args;
++    file += ".pdump";
++
++    switch (PlayerDumpWriter().WriteDump(file.c_str(), player->GetGUIDLow()))
++    {
++    case DUMP_SUCCESS:
++        PSendSysMessage("Charakter '%s' wurde als '%s' gespeichert.", player->GetName(), file.c_str());
++        return true;
++
++    case DUMP_FILE_OPEN_ERROR:
++        PSendSysMessage(LANG_FILE_OPEN_FAIL, file.c_str());
++        SetSentErrorMessage(true);
++        return false;
++
++    default:
++        PSendSysMessage("Speichern fehlgeschlagen.");
++        SetSentErrorMessage(true);
++        return false;
++    }
++}
++
++bool ChatHandler::HandleXLoadCommand(char* args)
++{
++    if (!args || !*args)
++    {
++        SendSysMessage("Benutzung: .x load <Dateiname>");
++        return false;
++    }
++
++    Player* player = m_session->GetPlayer();
++    if (!player)
++        return false;
++
++    std::string file = args;
++    file += ".pdump";
++
++    std::string name = player->GetName();
++
++    uint32 accountId = m_session->GetAccountId();
++    uint32 lowguid = 0;
++
++    switch (PlayerDumpReader().LoadDump(file.c_str(), accountId, name, lowguid))
++    {
++    case DUMP_SUCCESS:
++        PSendSysMessage("Charakter '%s' wurde aus '%s' geladen.", name.c_str(), file.c_str());
++        return true;
++
++    case DUMP_FILE_OPEN_ERROR:
++        PSendSysMessage(LANG_FILE_OPEN_FAIL, file.c_str());
++        SetSentErrorMessage(true);
++        return false;
++
++    case DUMP_FILE_BROKEN:
++        PSendSysMessage(LANG_DUMP_BROKEN, file.c_str());
++        SetSentErrorMessage(true);
++        return false;
++
++    case DUMP_TOO_MANY_CHARS:
++        PSendSysMessage(LANG_ACCOUNT_CHARACTER_LIST_FULL);
++        SetSentErrorMessage(true);
++        return false;
++
++    default:
++        PSendSysMessage(LANG_COMMAND_IMPORT_FAILED);
++        SetSentErrorMessage(true);
++        return false;
++    }
++}
+diff --git a/src/game/Chat/Chat.h b/src/game/Chat/Chat.h
+index 00cae03b8..d6c824891 100644
+--- a/src/game/Chat/Chat.h
++++ b/src/game/Chat/Chat.h
+@@ -297,6 +297,27 @@ class ChatHandler
+         bool HandlePartyBotUnpauseCommand(char * args);
+         bool HandlePartyBotUnequipCommand(char * args);
+         bool HandlePartyBotRemoveCommand(char * args);
++        // Xarinia Player Commands
++        bool HandleXTankCommand(char* args);
++        bool HandleXHealCommand(char* args);
++        bool HandleXDpsCommand(char* args);
++        bool HandleXFollowCommand(char* args);
++        bool HandleXStayCommand(char* args);
++        bool HandleXSummonCommand(char* args);
++        bool HandleXAttackCommand(char* args);
++        bool HandleXRezzCommand(char* args);
++        bool HandleXPauseCommand(char* args);
++        bool HandleXUnpauseCommand(char* args);
++        bool HandleXAoECommand(char* args);
++        bool HandleXCCMarkCommand(char* args);
++        bool HandleXUseCommand(char* args);
++        bool HandleXMordeCommand(char* args);
++        bool HandleXXpCommand(char* args);
++        bool HandleXSaveCommand(char* args);
++        bool HandleXLoadCommand(char* args);
++
++
++
+         bool HandleBattleBotAddCommand(char* args, uint8 bg);
+         bool HandleBattleBotAddAlteracCommand(char* args);
+         bool HandleBattleBotAddArathiCommand(char* args);
+@@ -306,6 +327,7 @@ class ChatHandler
+         bool HandleBattleBotShowPathCommand(char* args);
+         bool HandleBattleBotShowAllPathsCommand(char* args);
+ 
++       
+         // spell_disabled
+         bool HandleReloadSpellDisabledCommand(char *args);
+         // AutoBroadCast
+diff --git a/src/game/Handlers/CharacterHandler.cpp b/src/game/Handlers/CharacterHandler.cpp
+index cdabf420a..f100ca2c1 100644
+--- a/src/game/Handlers/CharacterHandler.cpp
++++ b/src/game/Handlers/CharacterHandler.cpp
+@@ -603,6 +603,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder *holder)
+     //sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "Player %s added to Map.",pCurrChar->GetName());
+ 
+     pCurrChar->SendInitialPacketsAfterAddToMap();
++
+     if (alreadyOnline)
+         pCurrChar->SendInitWorldStates(pCurrChar->GetCachedZoneId());
+ 
+diff --git a/src/game/Handlers/ChatHandler.cpp b/src/game/Handlers/ChatHandler.cpp
+index 47f576dd2..dabf6f6a1 100644
+--- a/src/game/Handlers/ChatHandler.cpp
++++ b/src/game/Handlers/ChatHandler.cpp
+@@ -39,6 +39,7 @@
+ #include "GridNotifiersImpl.h"
+ #include "CellImpl.h"
+ #include "Anticheat.h"
++#include "NostalgiaAmbientChat.h"
+ #include "AccountMgr.h"
+ 
+ bool WorldSession::SanitizeChatMessage(std::string& msg, uint32 lang, uint32 msgType)
+@@ -402,6 +403,10 @@ void WorldSession::HandleChatMessageOpcode(WorldPackets::Chat::ChatMessage const
+                 SendPlayerNotFoundNotice(packet.whisperTargetOrChannel);
+                 break;
+             }
++
++            if (sNostalgiaAmbientChat.SendFakeWhisperResponse(this, packet.whisperTargetOrChannel))
++                return;
++
+             MasterPlayer* masterPlr = GetMasterPlayer();
+             ASSERT(masterPlr);
+ 
+diff --git a/src/game/Handlers/GroupHandler.cpp b/src/game/Handlers/GroupHandler.cpp
+index c25a9577c..461c3ce78 100644
+--- a/src/game/Handlers/GroupHandler.cpp
++++ b/src/game/Handlers/GroupHandler.cpp
+@@ -29,6 +29,7 @@
+ #include "ObjectMgr.h"
+ #include "Player.h"
+ #include "Group.h"
++#include "NostalgiaAmbientChat.h"
+ #include "Utilities/Random.h"
+ #include "SocialMgr.h"
+ #include "Util.h"
+@@ -64,6 +65,11 @@ void WorldSession::HandleGroupInviteOpcode(WorldPackets::Group::GroupInvite cons
+         return;
+     }
+ 
++    // Ambient-chat names are virtual. Inviting one creates a real temporary PartyBot
++    // with the race and class presented by that chat identity.
++    if (sNostalgiaAmbientChat.TryHandleFakeGroupInvite(this, packet.memberName))
++        return;
++
+     Player* player = sObjectMgr.GetPlayer(packet.memberName.c_str());
+ 
+     // No player
+diff --git a/src/game/Handlers/MiscHandler.cpp b/src/game/Handlers/MiscHandler.cpp
+index 7c289e1a1..c7e7a1035 100644
+--- a/src/game/Handlers/MiscHandler.cpp
++++ b/src/game/Handlers/MiscHandler.cpp
+@@ -44,6 +44,7 @@
+ #include "Conditions.h"
+ #include "Anticheat.h"
+ #include "MasterPlayer.h"
++#include "NostalgiaAmbientChat.h"
+ 
+ void WorldSession::HandleRepopRequestOpcode(NullClientPacket const& /*packet*/)
+ {
+@@ -217,7 +218,8 @@ public:
+                 break;
+         }
+ 
+-        uint32 count = m.size();
++        clientCount = sNostalgiaAmbientChat.AppendWhoEntries(data, clientCount, 49, team);
++        uint32 count = uint32(m.size()) + sNostalgiaAmbientChat.GetWhoEntryCount(team);
+         data.put(0, clientCount);                               // insert right count, listed count
+         data.put(4, count > 49 ? count : clientCount);          // insert right count, online count
+ 
+diff --git a/src/game/Handlers/QueryHandler.cpp b/src/game/Handlers/QueryHandler.cpp
+index c80994838..efd2bfc65 100644
+--- a/src/game/Handlers/QueryHandler.cpp
++++ b/src/game/Handlers/QueryHandler.cpp
+@@ -30,6 +30,7 @@
+ #include "ObjectMgr.h"
+ #include "ObjectGuid.h"
+ #include "Player.h"
++#include "NostalgiaAmbientChat.h"
+ 
+ void WorldSession::SendNameQueryOpcode(Player* p)
+ {
+@@ -96,6 +97,9 @@ void WorldSession::SendNameQueryOpcodeFromDBCallBack(QueryResult* result, uint32
+ 
+ void WorldSession::HandleQueryPlayerNameOpcode(WorldPackets::Query::QueryPlayerName const& packet)
+ {
++    if (sNostalgiaAmbientChat.SendFakeNameQueryResponse(this, packet.playerGuid))
++        return;
++
+     Player* pChar = sObjectMgr.GetPlayer(packet.playerGuid);
+ 
+     if (pChar)
+diff --git a/src/game/Objects/Player.cpp b/src/game/Objects/Player.cpp
+index dc6c0fe81..3d0ac06e7 100644
+--- a/src/game/Objects/Player.cpp
++++ b/src/game/Objects/Player.cpp
+@@ -4517,6 +4517,7 @@ void Player::DeleteFromDB(ObjectGuid playerGuid, uint32 accountId, bool updateRe
+             CharacterDatabase.PExecute("DELETE FROM `character_instance` WHERE `guid` = '%u'", lowGuid);
+             CharacterDatabase.PExecute("DELETE FROM `group_instance` WHERE `leader_guid` = '%u'", lowGuid);
+             CharacterDatabase.PExecute("DELETE FROM `character_inventory` WHERE `guid` = '%u'", lowGuid);
++            CharacterDatabase.PExecute("DELETE FROM `character_transmog` WHERE `owner_guid` = '%u'", lowGuid);
+             CharacterDatabase.PExecute("DELETE FROM `character_queststatus` WHERE `guid` = '%u'", lowGuid);
+             CharacterDatabase.PExecute("DELETE FROM `character_reputation` WHERE `guid` = '%u'", lowGuid);
+             CharacterDatabase.PExecute("DELETE FROM `character_skills` WHERE `guid` = '%u'", lowGuid);
+@@ -10551,7 +10552,12 @@ void Player::SetVisibleItemSlot(uint8 slot, Item const* pItem)
+         SetGuidValue(PLAYER_VISIBLE_ITEM_1_CREATOR + (slot * MAX_VISIBLE_ITEM_OFFSET), pItem->GetGuidValue(ITEM_FIELD_CREATOR));
+ 
+         int VisibleBase = PLAYER_VISIBLE_ITEM_1_0 + (slot * MAX_VISIBLE_ITEM_OFFSET);
+-        SetUInt32Value(VisibleBase + 0, pItem->GetEntry());
++        uint32 visibleItemEntry = pItem->GetEntry();
++        auto appearance = m_transmogAppearances.find(pItem->GetGUIDLow());
++        if (appearance != m_transmogAppearances.end() && sObjectMgr.GetItemPrototype(appearance->second))
++            visibleItemEntry = appearance->second;
++
++        SetUInt32Value(VisibleBase + 0, visibleItemEntry);
+ 
+         for (int i = 0; i < MAX_INSPECTED_ENCHANTMENT_SLOT; ++i)
+             SetUInt32Value(VisibleBase + 1 + i, pItem->GetEnchantmentId(EnchantmentSlot(i)));
+@@ -10575,6 +10581,33 @@ void Player::SetVisibleItemSlot(uint8 slot, Item const* pItem)
+     }
+ }
+ 
++void Player::SetTransmogAppearance(Item* item, uint32 displayItemEntry)
++{
++    if (!item || !sObjectMgr.GetItemPrototype(displayItemEntry))
++        return;
++
++    m_transmogAppearances[item->GetGUIDLow()] = displayItemEntry;
++    CharacterDatabase.PExecute("REPLACE INTO `character_transmog` (`item_guid`, `owner_guid`, `display_item_entry`) VALUES ('%u', '%u', '%u')",
++                               item->GetGUIDLow(), GetGUIDLow(), displayItemEntry);
++    SetVisibleItemSlot(item->GetSlot(), item);
++}
++
++bool Player::RemoveTransmogAppearance(uint8 equipmentSlot)
++{
++    Item* item = GetItemByPos(INVENTORY_SLOT_BAG_0, equipmentSlot);
++    if (!item)
++        return false;
++
++    auto appearance = m_transmogAppearances.find(item->GetGUIDLow());
++    if (appearance == m_transmogAppearances.end())
++        return false;
++
++    m_transmogAppearances.erase(appearance);
++    CharacterDatabase.PExecute("DELETE FROM `character_transmog` WHERE `item_guid` = '%u' AND `owner_guid` = '%u'", item->GetGUIDLow(), GetGUIDLow());
++    SetVisibleItemSlot(equipmentSlot, item);
++    return true;
++}
++
+ void Player::VisualizeItem(uint8 slot, Item* pItem)
+ {
+     if (!pItem)
+@@ -15115,6 +15148,8 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
+     if (!hasItems && m_playedTime[PLAYED_TIME_TOTAL] == 0)
+         AddStartingItems();
+ 
++    LoadTransmogAppearances();
++
+     _LoadItemLoot(holder->TakeResult(PLAYER_LOGIN_QUERY_LOADITEMLOOT));
+ 
+     // update items with duration and realtime
+@@ -15788,6 +15823,30 @@ bool Player::_LoadInventory(std::unique_ptr<QueryResult> result, uint32 timediff
+     return false;
+ }
+ 
++void Player::LoadTransmogAppearances()
++{
++    m_transmogAppearances.clear();
++
++    std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("SELECT `item_guid`, `display_item_entry` FROM `character_transmog` WHERE `owner_guid` = '%u'", GetGUIDLow());
++    if (result)
++    {
++        do
++        {
++            Field* fields = result->Fetch();
++            uint32 itemGuid = fields[0].GetUInt32();
++            uint32 displayItemEntry = fields[1].GetUInt32();
++
++            if (sObjectMgr.GetItemPrototype(displayItemEntry))
++                m_transmogAppearances[itemGuid] = displayItemEntry;
++        }
++        while (result->NextRow());
++    }
++
++    for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
++        if (Item* item = GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
++            SetVisibleItemSlot(slot, item);
++}
++
+ void Player::_LoadItemLoot(std::unique_ptr<QueryResult> result)
+ {
+     //std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("SELECT guid, item_id, amount, property FROM item_loot WHERE guid = '%u'", GetGUIDLow());
+diff --git a/src/game/Objects/Player.h b/src/game/Objects/Player.h
+index 8e222ea2e..205288031 100644
+--- a/src/game/Objects/Player.h
++++ b/src/game/Objects/Player.h
+@@ -45,6 +45,7 @@
+ #include <vector>
+ #include <functional>
+ #include <shared_mutex>
++#include <unordered_map>
+ 
+ struct Mail;
+ struct ItemPrototype;
+@@ -844,6 +845,8 @@ class Player final: public Unit
+     private:
+         ObjectGuid m_lootGuid;
+         Item* m_items[PLAYER_SLOTS_COUNT];
++        // Maps an equipped item's GUID to the item entry shown to clients.
++        std::unordered_map<uint32, uint32> m_transmogAppearances;
+         uint32 m_currentBuybackSlot;
+ 
+         std::vector<Item*> m_itemUpdateQueue;
+@@ -950,6 +953,8 @@ class Player final: public Unit
+         void AutoStoreLoot(Loot& loot, bool broadcast = false, uint8 bag = NULL_BAG, uint8 slot = NULL_SLOT);
+         void SetAmmo(uint32 item);
+         void RemoveAmmo();
++        void SetTransmogAppearance(Item* item, uint32 displayItemEntry);
++        bool RemoveTransmogAppearance(uint8 equipmentSlot);
+         void SendProficiency(ItemClass itemClass, uint32 itemSubclassMask) const;
+         Item* BankItem(ItemPosCountVec const& dest, Item* pItem, bool update)
+         {
+@@ -1214,6 +1219,7 @@ class Player final: public Unit
+         void _LoadAuras(std::unique_ptr<QueryResult> result, uint32 timediff);
+         void _LoadBoundInstances(std::unique_ptr<QueryResult> result);
+         bool _LoadInventory(std::unique_ptr<QueryResult> result, uint32 timediff, bool& hasEpicMount);
++        void LoadTransmogAppearances();
+         void _LoadItemLoot(std::unique_ptr<QueryResult> result);
+         void _LoadQuestStatus(std::unique_ptr<QueryResult> result);
+         void _LoadGroup(std::unique_ptr<QueryResult> result);
+diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
+index 4475bdc50..f639a26a0 100644
+--- a/src/game/PlayerBots/PlayerBotMgr.cpp
++++ b/src/game/PlayerBots/PlayerBotMgr.cpp
+@@ -405,6 +405,46 @@ bool PlayerBotMgr::AddBot(PlayerBotAI* ai)
+     return AddBot(e->playerGUID, false);
+ }
+ 
++bool PlayerBotMgr::AddAmbientPartyBot(Player* leader, uint8 race, uint8 class_)
++{
++    if (!leader || !sObjectMgr.GetPlayerInfo(race, class_))
++        return false;
++
++    if (leader->IsTaxiFlying() || leader->InBattleGround())
++        return false;
++
++    Group* group = leader->GetGroup();
++    if (group && group->isBGGroup())
++        group = leader->GetOriginalGroup();
++
++    if (group)
++    {
++        if (!group->IsLeader(leader->GetObjectGuid()) && !group->IsAssistant(leader->GetObjectGuid()))
++            return false;
++
++        if (group->IsFull() || sWorld.getConfig(CONFIG_UINT32_PARTY_BOT_MAX_BOTS) &&
++            (group->GetMembersCount() - 1 >= sWorld.getConfig(CONFIG_UINT32_PARTY_BOT_MAX_BOTS)))
++            return false;
++    }
++
++    if (Map const* map = leader->GetMap())
++    {
++        if (map->IsDungeon() && map->GetPlayers().getSize() >= map->GetMapEntry()->maxPlayers)
++            return false;
++    }
++
++    float x, y, z;
++    leader->GetNearPoint(leader, x, y, z, 0, 5.0f, frand(0.0f, 6.0f));
++    PartyBotAI* ai = new PartyBotAI(leader, nullptr, ROLE_INVALID, race, class_, leader->GetLevel(),
++        leader->GetMapId(), leader->GetMap()->GetInstanceId(), x, y, z, leader->GetOrientation());
++
++    if (AddBot(ai))
++        return true;
++
++    delete ai;
++    return false;
++}
++
+ bool PlayerBotMgr::AddBot(uint32 playerGUID, bool chatBot, PlayerBotAI* pAI)
+ {
+     uint32 accountId = 0;
+@@ -2038,3 +2078,31 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
+     PSendSysMessage("Showing %u paths for battleground.", id);
+     return true;
+ }
++
++bool ChatHandler::HandleXTankCommand(char* args)
++{
++    char cmd[] = "tank";
++    return HandlePartyBotAddCommand(cmd);
++}
++
++bool ChatHandler::HandleXHealCommand(char* args)
++{
++    char cmd[] = "healer";
++    return HandlePartyBotAddCommand(cmd);
++}
++
++bool ChatHandler::HandleXDpsCommand(char* args)
++{
++    char cmd[] = "dps";
++    return HandlePartyBotAddCommand(cmd);
++}
++
++bool ChatHandler::HandleXFollowCommand(char* args){ return HandlePartyBotComeToMeCommand(args); }
++
++bool ChatHandler::HandleXStayCommand(char* args) { return HandlePartyBotPauseCommand(args); }
++
++bool ChatHandler::HandleXSummonCommand(char* args) { return HandlePartyBotComeToMeCommand(args); }
++
++bool ChatHandler::HandleXAttackCommand(char* args) { return HandlePartyBotAttackStartCommand(args); }
++
++
+diff --git a/src/game/PlayerBots/PlayerBotMgr.h b/src/game/PlayerBots/PlayerBotMgr.h
+index a1067512a..1d82f3ed6 100644
+--- a/src/game/PlayerBots/PlayerBotMgr.h
++++ b/src/game/PlayerBots/PlayerBotMgr.h
+@@ -81,6 +81,7 @@ class PlayerBotMgr
+ 
+         bool AddBot(PlayerBotAI* ai);
+         bool AddBot(uint32 playerGuid, bool chatBot = false, PlayerBotAI* pAI = nullptr);
++        bool AddAmbientPartyBot(Player* leader, uint8 race, uint8 class_);
+         bool DeleteBot(std::map<uint64, std::shared_ptr<PlayerBotEntry>>::iterator iter);
+         bool DeleteBot(uint32 playerGuid);
+ 
+diff --git a/src/game/Server/Packets/Chat.h b/src/game/Server/Packets/Chat.h
+index 8bab2dab4..172151d56 100644
+--- a/src/game/Server/Packets/Chat.h
++++ b/src/game/Server/Packets/Chat.h
+@@ -47,3 +47,5 @@ namespace WorldPackets { namespace Chat
+ }} // namespace WorldPackets::Chat
+ 
+ #endif // MANGOS_PACKETS_CHAT_H
++
++
+diff --git a/src/game/World.cpp b/src/game/World.cpp
+index 6b0be9092..8c45f5404 100644
+--- a/src/game/World.cpp
++++ b/src/game/World.cpp
+@@ -66,6 +66,7 @@
+ #include "CharacterDatabaseCleaner.h"
+ #include "LFGMgr.h"
+ #include "AutoBroadCastMgr.h"
++#include "NostalgiaAmbientChat.h"
+ #include "AuctionHouseBotMgr.h"
+ #include "Transports/TransportMgr.h"
+ #include "PlayerBotMgr.h"
+@@ -484,7 +485,7 @@ void World::LoadConfigSettings(bool reload)
+ 
+     // Read the player limit and the Message of the day from the config file
+     SetPlayerLimit(sConfig.GetIntDefault("PlayerLimit", DEFAULT_PLAYER_LIMIT), true);
+-    SetMotd(sConfig.GetStringDefault("Motd", "Welcome to the Massive Network Game Object Server.") + std::string("\n") + std::string(GetPatchName()) + std::string(" is now live!"));
++    SetMotd(sConfig.GetStringDefault("Motd", "Welcome to the Massive Network Game Object Server."));
+ 
+     // Read all rates from the config file
+     setConfigPos(CONFIG_FLOAT_RATE_HEALTH,               "Rate.Health", 1.0f);
+@@ -1834,6 +1835,7 @@ void World::SetInitialWorldSettings()
+ 
+     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "Loading auto broadcast");
+     sAutoBroadCastMgr.Load();
++    sNostalgiaAmbientChat.Load();
+ 
+     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "Loading AH bot");
+     sAuctionHouseBotMgr.Load();
+@@ -2130,6 +2132,7 @@ void World::Update(uint32 diff)
+     sPlayerBotMgr.Update(diff);
+     // Update AutoBroadcast
+     sAutoBroadCastMgr.Update(diff);
++    sNostalgiaAmbientChat.Update(diff);
+     // Update ban list if necessary
+     sAccountMgr.Update(diff);
+ 
+diff --git a/src/mangosd/mangosd.conf.dist.in b/src/mangosd/mangosd.conf.dist.in
+index 377024547..7ef7c44c5 100644
+--- a/src/mangosd/mangosd.conf.dist.in
++++ b/src/mangosd/mangosd.conf.dist.in
+@@ -1160,6 +1160,26 @@ PetDefaultLoyalty = 1
+ PlayerCommands = 1
+ Event.Announce = 0
+ AutoBroadcast.Timer = 1800000
++
++#
++# Nostalgia.AmbientChat.Enable
++#     Sends fictional global chat messages through every active /1 General channel.
++#     The messages are independent of PartyBots and real player accounts.
++#     Default: 0 (false)
++#
++# Nostalgia.AmbientChat.MinInterval / Nostalgia.AmbientChat.MaxInterval
++#     Minimum and maximum time, in seconds, between ambient chat messages.
++#     Default: 25 / 55
++#
++Nostalgia.AmbientChat.Enable = 0
++Nostalgia.AmbientChat.MinInterval = 25
++Nostalgia.AmbientChat.MaxInterval = 55
++
++# Nostalgia.AmbientChat.WhoPerFaction
++#     Maximum number of faction-matching Nostalgia fake players considered for /who.
++#     Vanilla displays up to 50 total results, including real players.
++#     Default: 50
++Nostalgia.AmbientChat.WhoPerFaction = 50
+ Spell.EffectDelay = 400
+ Spell.ProcDelay = 800
+ BeepAtStart = 1
+diff --git a/src/scripts/custom/custom_creatures.cpp b/src/scripts/custom/custom_creatures.cpp
+index 1c4eeb0ff..65380c293 100644
+--- a/src/scripts/custom/custom_creatures.cpp
++++ b/src/scripts/custom/custom_creatures.cpp
+@@ -1217,6 +1217,253 @@ CreatureAI* GetAI_custom_summon_debug(Creature *creature)
+     return new npc_summon_debugAI(creature);
+ }
+ 
++namespace
++{
++    enum TransmogActions
++    {
++        TRANSMOG_ACTION_HEAD = 200,
++        TRANSMOG_ACTION_SHOULDERS,
++        TRANSMOG_ACTION_CHEST,
++        TRANSMOG_ACTION_LEGS,
++        TRANSMOG_ACTION_HANDS,
++        TRANSMOG_ACTION_CLOAK,
++        TRANSMOG_ACTION_FEET,
++        TRANSMOG_ACTION_WEAPON_MAINHAND,
++        TRANSMOG_ACTION_WEAPON_OFFHAND,
++        TRANSMOG_ACTION_SHIELD_OFFHAND,
++        TRANSMOG_ACTION_WEAPON_TWOHAND,
++        TRANSMOG_ACTION_REMOVE_ALL,
++        TRANSMOG_ACTION_CONFIRM_APPLY = 600,
++        TRANSMOG_ACTION_CONFIRM_REMOVE = 700,
++        TRANSMOG_ACTION_CANCEL
++    };
++
++    uint8 const TRANSMOG_SLOTS[] =
++    {
++        EQUIPMENT_SLOT_HEAD,
++        EQUIPMENT_SLOT_SHOULDERS,
++        EQUIPMENT_SLOT_CHEST,
++        EQUIPMENT_SLOT_LEGS,
++        EQUIPMENT_SLOT_HANDS,
++        EQUIPMENT_SLOT_BACK,
++        EQUIPMENT_SLOT_FEET,
++        EQUIPMENT_SLOT_MAINHAND,
++        EQUIPMENT_SLOT_OFFHAND
++    };
++
++    char const* GetTransmogSlotName(uint8 slot)
++    {
++        switch (slot)
++        {
++            case EQUIPMENT_SLOT_HEAD:      return "Kopf";
++            case EQUIPMENT_SLOT_SHOULDERS: return "Schulter";
++            case EQUIPMENT_SLOT_CHEST:     return "Brust";
++            case EQUIPMENT_SLOT_LEGS:      return "Beine";
++            case EQUIPMENT_SLOT_HANDS:     return "Handschuhe";
++            case EQUIPMENT_SLOT_BACK:      return "Umhang";
++            case EQUIPMENT_SLOT_FEET:      return "Stiefel";
++            case EQUIPMENT_SLOT_MAINHAND:  return "Haupthand";
++            case EQUIPMENT_SLOT_OFFHAND:   return "Nebenhand";
++            default:                       return "diesem Platz";
++        }
++    }
++
++    uint8 GetTransmogSlotFromAction(uint32 action)
++    {
++        switch (action)
++        {
++            case TRANSMOG_ACTION_HEAD:      return EQUIPMENT_SLOT_HEAD;
++            case TRANSMOG_ACTION_SHOULDERS: return EQUIPMENT_SLOT_SHOULDERS;
++            case TRANSMOG_ACTION_CHEST:     return EQUIPMENT_SLOT_CHEST;
++            case TRANSMOG_ACTION_LEGS:      return EQUIPMENT_SLOT_LEGS;
++            case TRANSMOG_ACTION_HANDS:     return EQUIPMENT_SLOT_HANDS;
++            case TRANSMOG_ACTION_CLOAK:     return EQUIPMENT_SLOT_BACK;
++            case TRANSMOG_ACTION_FEET:      return EQUIPMENT_SLOT_FEET;
++            case TRANSMOG_ACTION_WEAPON_MAINHAND:
++            case TRANSMOG_ACTION_WEAPON_TWOHAND:
++                return EQUIPMENT_SLOT_MAINHAND;
++            case TRANSMOG_ACTION_WEAPON_OFFHAND:
++            case TRANSMOG_ACTION_SHIELD_OFFHAND:
++                return EQUIPMENT_SLOT_OFFHAND;
++            default:                        return NULL_SLOT;
++        }
++    }
++
++    bool IsOneHandedWeapon(ItemPrototype const* item)
++    {
++        return item && item->Class == ITEM_CLASS_WEAPON &&
++               (item->InventoryType == INVTYPE_WEAPON || item->InventoryType == INVTYPE_WEAPONMAINHAND || item->InventoryType == INVTYPE_WEAPONOFFHAND);
++    }
++
++    bool IsTransmogSlotCompatible(uint32 action, ItemPrototype const* source, ItemPrototype const* target)
++    {
++        if (!source || !target || source->SubClass != target->SubClass)
++            return false;
++
++        switch (action)
++        {
++            case TRANSMOG_ACTION_HEAD:
++                return source->Class == ITEM_CLASS_ARMOR && target->Class == ITEM_CLASS_ARMOR && source->InventoryType == INVTYPE_HEAD && target->InventoryType == INVTYPE_HEAD;
++            case TRANSMOG_ACTION_SHOULDERS:
++                return source->Class == ITEM_CLASS_ARMOR && target->Class == ITEM_CLASS_ARMOR && source->InventoryType == INVTYPE_SHOULDERS && target->InventoryType == INVTYPE_SHOULDERS;
++            case TRANSMOG_ACTION_CHEST:
++                return source->Class == ITEM_CLASS_ARMOR && target->Class == ITEM_CLASS_ARMOR &&
++                       (source->InventoryType == INVTYPE_CHEST || source->InventoryType == INVTYPE_ROBE) &&
++                       (target->InventoryType == INVTYPE_CHEST || target->InventoryType == INVTYPE_ROBE);
++            case TRANSMOG_ACTION_LEGS:
++                return source->Class == ITEM_CLASS_ARMOR && target->Class == ITEM_CLASS_ARMOR && source->InventoryType == INVTYPE_LEGS && target->InventoryType == INVTYPE_LEGS;
++            case TRANSMOG_ACTION_HANDS:
++                return source->Class == ITEM_CLASS_ARMOR && target->Class == ITEM_CLASS_ARMOR && source->InventoryType == INVTYPE_HANDS && target->InventoryType == INVTYPE_HANDS;
++            case TRANSMOG_ACTION_CLOAK:
++                return source->Class == ITEM_CLASS_ARMOR && target->Class == ITEM_CLASS_ARMOR && source->InventoryType == INVTYPE_CLOAK && target->InventoryType == INVTYPE_CLOAK;
++            case TRANSMOG_ACTION_FEET:
++                return source->Class == ITEM_CLASS_ARMOR && target->Class == ITEM_CLASS_ARMOR && source->InventoryType == INVTYPE_FEET && target->InventoryType == INVTYPE_FEET;
++            case TRANSMOG_ACTION_WEAPON_MAINHAND:
++            case TRANSMOG_ACTION_WEAPON_OFFHAND:
++                return IsOneHandedWeapon(source) && IsOneHandedWeapon(target);
++            case TRANSMOG_ACTION_SHIELD_OFFHAND:
++                return source->Class == ITEM_CLASS_ARMOR && target->Class == ITEM_CLASS_ARMOR &&
++                       source->InventoryType == INVTYPE_SHIELD && target->InventoryType == INVTYPE_SHIELD &&
++                       (source->SubClass == ITEM_SUBCLASS_ARMOR_SHIELD || source->SubClass == ITEM_SUBCLASS_ARMOR_BUCKLER);
++            case TRANSMOG_ACTION_WEAPON_TWOHAND:
++                return source->Class == ITEM_CLASS_WEAPON && target->Class == ITEM_CLASS_WEAPON &&
++                       source->InventoryType == INVTYPE_2HWEAPON && target->InventoryType == INVTYPE_2HWEAPON;
++            default:
++                return false;
++        }
++    }
++
++    bool IsTransmogSourceUsableBy(Player* player, ItemPrototype const* source)
++    {
++        return source && (source->AllowableClass & player->GetClassMask()) != 0 && (source->AllowableRace & player->GetRaceMask()) != 0;
++    }
++
++    bool GetTransmogItems(Player* player, uint32 action, Item*& source, Item*& target)
++    {
++        uint8 equipmentSlot = GetTransmogSlotFromAction(action);
++        source = player->GetItemByPos(INVENTORY_SLOT_BAG_0, INVENTORY_SLOT_ITEM_START);
++        target = player->GetItemByPos(INVENTORY_SLOT_BAG_0, equipmentSlot);
++
++        if (!source)
++        {
++            player->GetSession()->SendNotification("Lege die Optik-Vorlage in den ersten Platz deines Rucksacks.");
++            return false;
++        }
++
++        if (!target)
++        {
++            player->GetSession()->SendNotification("Du hast auf dem Platz %s kein Item angelegt.", GetTransmogSlotName(equipmentSlot));
++            return false;
++        }
++
++        if (!IsTransmogSourceUsableBy(player, source->GetProto()))
++        {
++            player->GetSession()->SendNotification("Diese Vorlage ist nicht fuer deine Klasse oder Rasse geeignet.");
++            return false;
++        }
++
++        if (!IsTransmogSlotCompatible(action, source->GetProto(), target->GetProto()))
++        {
++            player->GetSession()->SendNotification("Die Vorlage muss denselben Ausruestungsplatz und denselben Ruestungs- oder Waffentyp haben.");
++            return false;
++        }
++
++        return true;
++    }
++
++    void SendTransmogConfirmation(Player* player, Creature* creature, uint32 action)
++    {
++        Item* source = nullptr;
++        Item* target = nullptr;
++        if (!GetTransmogItems(player, action, source, target))
++        {
++            player->CLOSE_GOSSIP_MENU();
++            return;
++        }
++
++        std::string confirm = "Ja, " + std::string(target->GetProto()->Name1) + " wie " + source->GetProto()->Name1 + " aussehen lassen";
++        player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, confirm.c_str(), GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_CONFIRM_APPLY + (action - TRANSMOG_ACTION_HEAD));
++        player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Nein, zurueck", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_CANCEL);
++        player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
++    }
++}
++
++bool GossipHello_Transmogger(Player* player, Creature* creature)
++{
++    player->GetSession()->SendNotification("Hinweis: Lege die Optik-Vorlage in Rucksackplatz 1, damit sie erkannt wird.");
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Kopf", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_HEAD);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Schulter", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_SHOULDERS);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Brust", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_CHEST);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Beine", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_LEGS);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Handschuhe", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_HANDS);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Umhang", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_CLOAK);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Stiefel", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_FEET);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "1H-Waffe (Haupthand)", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_WEAPON_MAINHAND);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "1H-Waffe (Nebenhand)", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_WEAPON_OFFHAND);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Schildhand", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_SHIELD_OFFHAND);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "2H-Waffe / Stab", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_WEAPON_TWOHAND);
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Transmog von allen Teilen entfernen", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_REMOVE_ALL);
++    player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
++    return true;
++}
++
++bool GossipSelect_Transmogger(Player* player, Creature* creature, uint32 sender, uint32 action)
++{
++    if (sender != GOSSIP_SENDER_MAIN)
++        return true;
++
++    uint8 equipmentSlot = GetTransmogSlotFromAction(action);
++    if (equipmentSlot != NULL_SLOT)
++    {
++        SendTransmogConfirmation(player, creature, action);
++        return true;
++    }
++
++    if (action >= TRANSMOG_ACTION_CONFIRM_APPLY && action < TRANSMOG_ACTION_CONFIRM_REMOVE)
++    {
++        uint32 transmogAction = TRANSMOG_ACTION_HEAD + (action - TRANSMOG_ACTION_CONFIRM_APPLY);
++        equipmentSlot = GetTransmogSlotFromAction(transmogAction);
++        if (equipmentSlot == NULL_SLOT)
++        {
++            player->CLOSE_GOSSIP_MENU();
++            return true;
++        }
++        Item* source = nullptr;
++        Item* target = nullptr;
++        if (GetTransmogItems(player, transmogAction, source, target))
++        {
++            player->SetTransmogAppearance(target, source->GetEntry());
++            player->GetSession()->SendNotification("Die Optik von %s wurde auf %s uebertragen. Die Vorlage bleibt in deinem Rucksack.", source->GetProto()->Name1, target->GetProto()->Name1);
++        }
++        player->CLOSE_GOSSIP_MENU();
++        return true;
++    }
++
++    if (action == TRANSMOG_ACTION_REMOVE_ALL)
++    {
++        player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Ja, alle Transmog-Optiken entfernen", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_CONFIRM_REMOVE);
++        player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Nein, zurueck", GOSSIP_SENDER_MAIN, TRANSMOG_ACTION_CANCEL);
++        player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
++        return true;
++    }
++
++    if (action == TRANSMOG_ACTION_CONFIRM_REMOVE)
++    {
++        uint32 removed = 0;
++        for (uint8 equipmentSlot : TRANSMOG_SLOTS)
++            if (player->RemoveTransmogAppearance(equipmentSlot))
++                ++removed;
++
++        if (removed)
++            player->GetSession()->SendNotification("%u Transmog-Optik(en) entfernt.", removed);
++        else
++            player->GetSession()->SendNotification("Es gab keine Transmog-Optiken zum Entfernen.");
++    }
++
++    player->CLOSE_GOSSIP_MENU();
++    return true;
++}
++
+ void AddSC_custom_creatures()
+ {
+     Script* newscript;
+@@ -1260,4 +1507,10 @@ void AddSC_custom_creatures()
+     newscript->Name = "custom_npc_summon_debugAI";
+     newscript->GetAI = &GetAI_custom_summon_debug;
+     newscript->RegisterSelf(false);
++
++    newscript = new Script;
++    newscript->Name = "custom_transmogger";
++    newscript->pGossipHello = &GossipHello_Transmogger;
++    newscript->pGossipSelect = &GossipSelect_Transmogger;
++    newscript->RegisterSelf(false);
+ }
+diff --git a/src/game/NostalgiaAmbientChat.cpp b/src/game/NostalgiaAmbientChat.cpp
+new file mode 100644
+index 000000000..7d37d2a8b
+--- /dev/null
++++ b/src/game/NostalgiaAmbientChat.cpp
+@@ -0,0 +1,226 @@
++#include "NostalgiaAmbientChat.h"
++
++#include "Chat.h"
++#include "ChannelMgr.h"
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Log.h"
++#include "Policies/SingletonImp.h"
++#include "PlayerBotMgr.h"
++#include "Server/Packets/Query.h"
++#include "SharedDefines.h"
++#include "Utilities/Random.h"
++#include "World.h"
++#include "WorldSession.h"
++
++#include <algorithm>
++
++INSTANTIATE_SINGLETON_1(NostalgiaAmbientChat);
++
++namespace
++{
++bool IsAllianceRace(uint8 race)
++{
++    return race == RACE_HUMAN || race == RACE_DWARF || race == RACE_NIGHTELF || race == RACE_GNOME;
++}
++
++bool IsVisibleToTeam(NostalgiaAmbientChatEntry const& entry, uint32 viewerTeam)
++{
++    if (viewerTeam == ALLIANCE)
++        return IsAllianceRace(entry.race);
++    if (viewerTeam == HORDE)
++        return !IsAllianceRace(entry.race);
++
++    return false;
++}
++
++uint32 GetWhoZoneId(NostalgiaAmbientChatEntry const& entry)
++{
++    // The chat itself is global, but the Who list should feel like a populated world.
++    static uint32 const allianceZones[] = {
++        12, 40, 10, 44, 38, 11, 267, 45, 33, 440, 46, 28, 139, 1519, 1537, 1657,
++        36, 717, 721, 796, 1337, 1176, 1584, 1583, 2057, 2017, 2717, 2677, 3456
++    };
++    static uint32 const hordeZones[] = {
++        14, 17, 215, 85, 130, 406, 331, 400, 405, 357, 8, 3, 51, 1637, 1638, 1497,
++        2437, 718, 209, 719, 491, 722, 1337, 1176, 2100, 1477, 1584, 1583, 2057, 2017, 2717, 2677, 3456
++    };
++
++    uint32 const* zones = IsAllianceRace(entry.race) ? allianceZones : hordeZones;
++    uint32 const count = IsAllianceRace(entry.race) ? uint32(sizeof(allianceZones) / sizeof(uint32)) : uint32(sizeof(hordeZones) / sizeof(uint32));
++    return zones[entry.senderGuid % count];
++}
++}
++
++void NostalgiaAmbientChat::Load()
++{
++    m_entries.clear();
++
++    std::unique_ptr<QueryResult> result = WorldDatabase.Query(
++        "SELECT zone_id, channel_name, sender_guid, sender_name, race, gender, class, level, guild_name, message "
++        "FROM nostalgia_ambient_chat WHERE enabled = 1");
++
++    if (!result)
++    {
++        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, ">> Loaded 0 Nostalgia ambient chat messages");
++        return;
++    }
++
++    do
++    {
++        Field* fields = result->Fetch();
++        NostalgiaAmbientChatEntry entry;
++        entry.zoneId = fields[0].GetUInt32();
++        entry.channelName = fields[1].GetCppString();
++        entry.senderGuid = fields[2].GetUInt32();
++        entry.senderName = fields[3].GetCppString();
++        entry.race = fields[4].GetUInt8();
++        entry.gender = fields[5].GetUInt8();
++        entry.classId = fields[6].GetUInt8();
++        entry.level = fields[7].GetUInt8();
++        entry.guildName = fields[8].GetCppString();
++        entry.message = fields[9].GetCppString();
++        m_entries.push_back(std::move(entry));
++    }
++    while (result->NextRow());
++
++    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, ">> Loaded %u Nostalgia ambient chat messages", uint32(m_entries.size()));
++}
++
++bool NostalgiaAmbientChat::SendFakeNameQueryResponse(WorldSession* session, ObjectGuid guid) const
++{
++    if (!session || guid.GetHigh() != HIGHGUID_PLAYER)
++        return false;
++
++    auto const entry = std::find_if(m_entries.begin(), m_entries.end(), [guid](NostalgiaAmbientChatEntry const& candidate)
++    {
++        return candidate.senderGuid == guid.GetCounter();
++    });
++
++    if (entry == m_entries.end())
++        return false;
++
++    auto response = std::make_unique<WorldPackets::Query::NameQueryResponse>();
++    response->playerGuid = guid;
++    response->name = entry->senderName;
++    response->race = entry->race;
++    response->gender = entry->gender;
++    response->class_ = entry->classId;
++    session->SendPacket(std::move(response));
++    return true;
++}
++
++bool NostalgiaAmbientChat::SendFakeWhisperResponse(WorldSession* session, std::string const& targetName) const
++{
++    if (!session)
++        return false;
++
++    auto const entry = std::find_if(m_entries.begin(), m_entries.end(), [&targetName](NostalgiaAmbientChatEntry const& candidate)
++    {
++        return candidate.senderName == targetName;
++    });
++
++    if (entry == m_entries.end())
++        return false;
++
++    ObjectGuid const senderGuid(HIGHGUID_PLAYER, entry->senderGuid);
++    SendFakeNameQueryResponse(session, senderGuid);
++
++    char const* const greetings[] = {
++        "hi", "hallo", "huhu", "hey", "hey was geht", "na", "na du", "moin",
++        "jo", "jojo", "yo", "jep", "hiii :)", "hallo hallo", "sag an", "was los?",
++        "bin da", "hier", "hehe", "xD", "sec", "bin kurz afk", "was brauchst?",
++        "alles klar bei dir?", "grüße", "nabend", "tach", "bitte?", "joo", "^^"
++    };
++    WorldPacket response;
++    ChatHandler::BuildChatPacket(response, CHAT_MSG_WHISPER, greetings[urand(0, 29)], LANG_UNIVERSAL,
++        CHAT_TAG_NONE, senderGuid, entry->senderName.c_str());
++    session->SendPacket(&response);
++    return true;
++}
++
++bool NostalgiaAmbientChat::TryHandleFakeGroupInvite(WorldSession* session, std::string const& targetName) const
++{
++    if (!sConfig.GetBoolDefault("Nostalgia.AmbientChat.InviteBots", true))
++        return false;
++
++    auto const entry = std::find_if(m_entries.begin(), m_entries.end(), [&targetName](NostalgiaAmbientChatEntry const& candidate)
++    {
++        return candidate.senderName == targetName;
++    });
++
++    if (entry == m_entries.end())
++        return false;
++
++    if (!session || !session->GetPlayer())
++        return true;
++
++    if (sPlayerBotMgr.AddAmbientPartyBot(session->GetPlayer(), entry->race, entry->classId))
++        session->SendNotification("%s schliesst sich deiner Gruppe an.", entry->senderName.c_str());
++    else
++        session->SendNotification("%s kann deiner Gruppe gerade nicht beitreten.", entry->senderName.c_str());
++
++    return true;
++}
++
++uint32 NostalgiaAmbientChat::AppendWhoEntries(WorldPacket& data, uint32 currentCount, uint32 maximumCount, uint32 viewerTeam) const
++{
++    uint32 const perFactionMaximum = std::min<uint32>(50, uint32(std::max(1, sConfig.GetIntDefault("Nostalgia.AmbientChat.WhoPerFaction", 50))));
++    uint32 added = 0;
++
++    for (NostalgiaAmbientChatEntry const& entry : m_entries)
++    {
++        if (currentCount >= maximumCount || added >= perFactionMaximum)
++            break;
++
++        if (!IsVisibleToTeam(entry, viewerTeam))
++            continue;
++
++        data << entry.senderName;
++        data << entry.guildName;
++        data << uint32(entry.level);
++        data << uint32(entry.classId);
++        data << uint32(entry.race);
++        data << GetWhoZoneId(entry);
++        ++currentCount;
++        ++added;
++    }
++
++    return currentCount;
++}
++
++uint32 NostalgiaAmbientChat::GetWhoEntryCount(uint32 viewerTeam) const
++{
++    uint32 const perFactionMaximum = std::min<uint32>(50, uint32(std::max(1, sConfig.GetIntDefault("Nostalgia.AmbientChat.WhoPerFaction", 50))));
++    uint32 count = 0;
++    for (NostalgiaAmbientChatEntry const& entry : m_entries)
++    {
++        if (!IsVisibleToTeam(entry, viewerTeam))
++            continue;
++
++        if (++count >= perFactionMaximum)
++            break;
++    }
++
++    return count;
++}
++
++void NostalgiaAmbientChat::Update(uint32 diff)
++{
++    if (!sConfig.GetBoolDefault("Nostalgia.AmbientChat.Enable", false) || m_entries.empty())
++        return;
++
++    if (m_nextMessageTimer > diff)
++    {
++        m_nextMessageTimer -= diff;
++        return;
++    }
++
++    NostalgiaAmbientChatEntry const& entry = m_entries[urand(0, uint32(m_entries.size() - 1))];
++    if (ChannelMgr* cMgr = channelMgr(ALLIANCE))
++        cMgr->SendExternalMessageToGeneralChannels(ObjectGuid(HIGHGUID_PLAYER, entry.senderGuid), entry.message.c_str());
++
++    int32 const minimum = std::max(10, sConfig.GetIntDefault("Nostalgia.AmbientChat.MinInterval", 25));
++    int32 const maximum = std::max(minimum, sConfig.GetIntDefault("Nostalgia.AmbientChat.MaxInterval", 55));
++    m_nextMessageTimer = urand(uint32(minimum), uint32(maximum)) * IN_MILLISECONDS;
++}
+diff --git a/src/game/NostalgiaAmbientChat.h b/src/game/NostalgiaAmbientChat.h
+new file mode 100644
+index 000000000..71295516b
+--- /dev/null
++++ b/src/game/NostalgiaAmbientChat.h
+@@ -0,0 +1,47 @@
++#ifndef NOSTALGIA_AMBIENT_CHAT_H
++#define NOSTALGIA_AMBIENT_CHAT_H
++
++#include "ObjectGuid.h"
++#include "Policies/Singleton.h"
++#include "Platform/Define.h"
++
++#include <string>
++#include <vector>
++
++class WorldSession;
++class WorldPacket;
++
++struct NostalgiaAmbientChatEntry
++{
++    uint32 zoneId;
++    uint32 senderGuid;
++    uint8 race;
++    uint8 gender;
++    uint8 classId;
++    uint8 level;
++    std::string channelName;
++    std::string guildName;
++    std::string senderName;
++    std::string message;
++};
++
++class NostalgiaAmbientChat
++{
++public:
++    void Load();
++    void Update(uint32 diff);
++    bool SendFakeNameQueryResponse(WorldSession* session, ObjectGuid guid) const;
++    bool SendFakeWhisperResponse(WorldSession* session, std::string const& targetName) const;
++    bool TryHandleFakeGroupInvite(WorldSession* session, std::string const& targetName) const;
++    uint32 AppendWhoEntries(WorldPacket& data, uint32 currentCount, uint32 maximumCount, uint32 viewerTeam) const;
++    uint32 GetWhoEntryCount(uint32 viewerTeam) const;
++    uint32 GetEntryCount() const { return uint32(m_entries.size()); }
++
++private:
++    std::vector<NostalgiaAmbientChatEntry> m_entries;
++    uint32 m_nextMessageTimer = 15000;
++};
++
++#define sNostalgiaAmbientChat MaNGOS::Singleton<NostalgiaAmbientChat>::Instance()
++
++#endif

@@ -1,0 +1,18 @@
+# Never publish build products, runtime data or a game client.
+/build/
+/bin/
+/Data/
+/client/
+/testclient/
+/MariaDB/
+/Server/
+/logs/
+/sessions/
+*.exe
+*.dll
+*.pdb
+*.mpq
+*.pdump
+*.log
+*.err
+.vs/
