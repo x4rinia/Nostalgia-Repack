@@ -612,7 +612,7 @@ index cdabf420a..f100ca2c1 100644
          pCurrChar->SendInitWorldStates(pCurrChar->GetCachedZoneId());
  
 diff --git a/src/game/Handlers/ChatHandler.cpp b/src/game/Handlers/ChatHandler.cpp
-index 47f576dd2..dabf6f6a1 100644
+index 47f576dd2..3dff05671 100644
 --- a/src/game/Handlers/ChatHandler.cpp
 +++ b/src/game/Handlers/ChatHandler.cpp
 @@ -39,6 +39,7 @@
@@ -628,7 +628,7 @@ index 47f576dd2..dabf6f6a1 100644
                  break;
              }
 +
-+            if (sNostalgiaAmbientChat.SendFakeWhisperResponse(this, packet.whisperTargetOrChannel))
++            if (sNostalgiaAmbientChat.SendFakeWhisperResponse(this, packet.whisperTargetOrChannel, packet.message))
 +                return;
 +
              MasterPlayer* masterPlr = GetMasterPlayer();
@@ -840,6 +840,51 @@ index 8e222ea2e..205288031 100644
          void _LoadItemLoot(std::unique_ptr<QueryResult> result);
          void _LoadQuestStatus(std::unique_ptr<QueryResult> result);
          void _LoadGroup(std::unique_ptr<QueryResult> result);
+diff --git a/src/game/PlayerBots/PartyBotAI.cpp b/src/game/PlayerBots/PartyBotAI.cpp
+index 88b14d30b..376c50df5 100644
+--- a/src/game/PlayerBots/PartyBotAI.cpp
++++ b/src/game/PlayerBots/PartyBotAI.cpp
+@@ -537,7 +537,19 @@ void PartyBotAI::AddToPlayerGroup()
+         if (me->GetGroup())
+             me->RemoveFromGroup();
+ 
+-        group->AddMember(me->GetObjectGuid(), me->GetName());
++        if (group->AddMember(me->GetObjectGuid(), me->GetName()) && m_sendJoinGreeting)
++        {
++            m_sendJoinGreeting = false;
++
++            char const* const greetings[] = {
++                "hey", "hallo zusammen", "huhu", "moin", "na ihr", "hey :)",
++                "jo bin da", "servus", "gruesse", "was geht"
++            };
++            WorldPacket data;
++            ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, greetings[urand(0, 9)], LANG_UNIVERSAL,
++                me->GetChatTag(), me->GetObjectGuid(), me->GetName());
++            group->BroadcastPacket(&data, false, group->GetMemberGroup(me->GetObjectGuid()));
++        }
+     }
+ }
+ 
+diff --git a/src/game/PlayerBots/PartyBotAI.h b/src/game/PlayerBots/PartyBotAI.h
+index d0f79b49a..a90b4dabc 100644
+--- a/src/game/PlayerBots/PartyBotAI.h
++++ b/src/game/PlayerBots/PartyBotAI.h
+@@ -48,6 +48,7 @@ public:
+ 
+     void CloneFromPlayer(Player const* pPlayer);
+     void AddToPlayerGroup();
++    void EnableJoinGreeting() { m_sendJoinGreeting = true; }
+ 
+     bool CanTryToCastSpell(Unit const* pTarget, SpellEntry const* pSpellEntry) const final;
+     Player* GetPartyLeader() const;
+@@ -105,6 +106,7 @@ public:
+     float m_z = 0.0f;
+     float m_o = 0.0f;
+     bool m_resetSpellData = false;
++    bool m_sendJoinGreeting = false;
+ };
+ 
+ #endif
 diff --git a/src/game/PlayerBots/PlayerBotAI.cpp b/src/game/PlayerBots/PlayerBotAI.cpp
 index ca773b3ce..b7d8a537b 100644
 --- a/src/game/PlayerBots/PlayerBotAI.cpp
@@ -856,10 +901,10 @@ index ca773b3ce..b7d8a537b 100644
  
      uint8 gender;
 diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
-index 4475bdc50..c1ea041b2 100644
+index 4475bdc50..191c1b45a 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.cpp
 +++ b/src/game/PlayerBots/PlayerBotMgr.cpp
-@@ -392,19 +392,64 @@ bool PlayerBotMgr::AddOrRemoveBot()
+@@ -392,19 +392,65 @@ bool PlayerBotMgr::AddOrRemoveBot()
  
  }
  
@@ -914,6 +959,7 @@ index 4475bdc50..c1ea041b2 100644
 +    leader->GetNearPoint(leader, x, y, z, 0, 5.0f, frand(0.0f, 6.0f));
 +    PartyBotAI* ai = new PartyBotAI(leader, nullptr, ROLE_INVALID, race, class_, leader->GetLevel(),
 +        leader->GetMapId(), leader->GetMap()->GetInstanceId(), x, y, z, leader->GetOrientation());
++    ai->EnableJoinGreeting();
 +
 +    if (AddBot(ai, name))
 +        return true;
@@ -925,7 +971,7 @@ index 4475bdc50..c1ea041b2 100644
  bool PlayerBotMgr::AddBot(uint32 playerGUID, bool chatBot, PlayerBotAI* pAI)
  {
      uint32 accountId = 0;
-@@ -2038,3 +2083,31 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
+@@ -2038,3 +2084,31 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
      PSendSysMessage("Showing %u paths for battleground.", id);
      return true;
  }
@@ -1321,10 +1367,10 @@ index 1c4eeb0ff..65380c293 100644
  }
 diff --git a/src/game/NostalgiaAmbientChat.cpp b/src/game/NostalgiaAmbientChat.cpp
 new file mode 100644
-index 000000000..da7521833
+index 000000000..64b15e023
 --- /dev/null
 +++ b/src/game/NostalgiaAmbientChat.cpp
-@@ -0,0 +1,226 @@
+@@ -0,0 +1,233 @@
 +#include "NostalgiaAmbientChat.h"
 +
 +#include "Chat.h"
@@ -1437,7 +1483,7 @@ index 000000000..da7521833
 +    return true;
 +}
 +
-+bool NostalgiaAmbientChat::SendFakeWhisperResponse(WorldSession* session, std::string const& targetName) const
++bool NostalgiaAmbientChat::SendFakeWhisperResponse(WorldSession* session, std::string const& targetName, std::string const& message) const
 +{
 +    if (!session)
 +        return false;
@@ -1452,6 +1498,13 @@ index 000000000..da7521833
 +
 +    ObjectGuid const senderGuid(HIGHGUID_PLAYER, entry->senderGuid);
 +    SendFakeNameQueryResponse(session, senderGuid);
++
++    // Virtual chat identities have no session of their own. Mirror the outgoing
++    // message so the client displays the normal "To <name>" whisper line.
++    WorldPacket outgoing;
++    ChatHandler::BuildChatPacket(outgoing, CHAT_MSG_WHISPER_INFORM, message.c_str(), LANG_UNIVERSAL,
++        CHAT_TAG_NONE, senderGuid);
++    session->SendPacket(&outgoing);
 +
 +    char const* const greetings[] = {
 +        "hi", "hallo", "huhu", "hey", "hey was geht", "na", "na du", "moin",
@@ -1553,7 +1606,7 @@ index 000000000..da7521833
 +}
 diff --git a/src/game/NostalgiaAmbientChat.h b/src/game/NostalgiaAmbientChat.h
 new file mode 100644
-index 000000000..71295516b
+index 000000000..f231de4ce
 --- /dev/null
 +++ b/src/game/NostalgiaAmbientChat.h
 @@ -0,0 +1,47 @@
@@ -1590,7 +1643,7 @@ index 000000000..71295516b
 +    void Load();
 +    void Update(uint32 diff);
 +    bool SendFakeNameQueryResponse(WorldSession* session, ObjectGuid guid) const;
-+    bool SendFakeWhisperResponse(WorldSession* session, std::string const& targetName) const;
++    bool SendFakeWhisperResponse(WorldSession* session, std::string const& targetName, std::string const& message) const;
 +    bool TryHandleFakeGroupInvite(WorldSession* session, std::string const& targetName) const;
 +    uint32 AppendWhoEntries(WorldPacket& data, uint32 currentCount, uint32 maximumCount, uint32 viewerTeam) const;
 +    uint32 GetWhoEntryCount(uint32 viewerTeam) const;
