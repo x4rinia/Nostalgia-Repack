@@ -872,7 +872,7 @@ index 8e222ea2e..205288031 100644
          void _LoadQuestStatus(std::unique_ptr<QueryResult> result);
          void _LoadGroup(std::unique_ptr<QueryResult> result);
 diff --git a/src/game/PlayerBots/BattleBotAI.cpp b/src/game/PlayerBots/BattleBotAI.cpp
-index 0f9974c02..470a879e7 100644
+index 0f9974c02..39e4e4b59 100644
 --- a/src/game/PlayerBots/BattleBotAI.cpp
 +++ b/src/game/PlayerBots/BattleBotAI.cpp
 @@ -32,6 +32,7 @@
@@ -883,7 +883,7 @@ index 0f9974c02..470a879e7 100644
  
  enum BattleBotSpells
  {
-@@ -263,6 +264,117 @@ bool BattleBotAI::ShouldIgnoreCombat() const
+@@ -263,6 +264,189 @@ bool BattleBotAI::ShouldIgnoreCombat() const
      return false;
  }
  
@@ -998,10 +998,82 @@ index 0f9974c02..470a879e7 100644
 +        UpdateInCombatAI();
 +}
 +
++void BattleBotAI::UpdateGurubashiArenaRivalAI()
++{
++    // The arena itself is a free-for-all PvP area. Keeping the flag on makes these
++    // bots valid opponents for every player in the ring without enabling open PvP elsewhere.
++    me->SetFFAPvP(true);
++
++    if (me->IsDead())
++    {
++        if (!m_wasDead)
++        {
++            m_wasDead = true;
++            OnJustDied();
++        }
++        return;
++    }
++
++    if (me->HasUnitState(UNIT_STATE_CAN_NOT_REACT_OR_LOST_CONTROL))
++    {
++        BreakCrowdControlEffects();
++        return;
++    }
++
++    if (me->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL))
++    {
++        if (!me->GetVictim())
++            me->InterruptSpell(CURRENT_AUTOREPEAT_SPELL, true);
++        else if (me->GetClass() == CLASS_HUNTER)
++        {
++            if (me->GetCombatDistance(me->GetVictim()) < 8.0f)
++                me->InterruptSpell(CURRENT_AUTOREPEAT_SPELL, true);
++            else
++                UpdateInCombatAI_Hunter();
++        }
++        return;
++    }
++
++    if (me->IsNonMeleeSpellCasted(false, false, true))
++        return;
++
++    if (me->GetStandState() != UNIT_STAND_STATE_STAND)
++        me->SetStandState(UNIT_STAND_STATE_STAND);
++    if (me->GetSheath() == SHEATH_STATE_UNARMED && !me->IsMounted())
++        me->SetSheath(SHEATH_STATE_MELEE);
++
++    Unit* victim = me->GetVictim();
++    if (!victim || !IsValidHostileTarget(victim) || !me->IsWithinDist(victim, VISIBILITY_DISTANCE_NORMAL))
++    {
++        if (victim)
++            me->AttackStop();
++        if (Unit* newVictim = SelectAttackTarget(victim))
++            AttackStart(newVictim);
++        else
++            me->StopMoving();
++        return;
++    }
++
++    if (!me->HasInArc(victim, 2 * M_PI_F / 3) && !me->IsMoving())
++    {
++        me->SetInFront(victim);
++        me->SendMovementPacket(MSG_MOVE_SET_FACING, false);
++    }
++
++    if (!me->HasUnitState(UNIT_STATE_MELEE_ATTACKING) && m_role != ROLE_HEALER)
++    {
++        AttackStart(victim);
++        return;
++    }
++
++    if (me->IsInCombat())
++        UpdateInCombatAI();
++}
++
  Unit* BattleBotAI::SelectAttackTarget(Unit* pExcept) const
  {
      // Ignore attackers while carrying flag, just keep running.
-@@ -691,6 +803,12 @@ void BattleBotAI::UpdateAI(uint32 const diff)
+@@ -691,6 +875,18 @@ void BattleBotAI::UpdateAI(uint32 const diff)
          return;
      }
  
@@ -1011,11 +1083,17 @@ index 0f9974c02..470a879e7 100644
 +        return;
 +    }
 +
++    if (m_gurubashiArenaRival)
++    {
++        UpdateGurubashiArenaRivalAI();
++        return;
++    }
++
      if (!me->InBattleGround())
      {
          if (m_wasInBG)
 diff --git a/src/game/PlayerBots/BattleBotAI.h b/src/game/PlayerBots/BattleBotAI.h
-index b01ee2050..2a6c103ef 100644
+index b01ee2050..3d79c4eb4 100644
 --- a/src/game/PlayerBots/BattleBotAI.h
 +++ b/src/game/PlayerBots/BattleBotAI.h
 @@ -36,8 +36,10 @@ enum FlagSpellsWS
@@ -1025,27 +1103,29 @@ index b01ee2050..2a6c103ef 100644
 -    BattleBotAI(uint8 race, uint8 class_, uint8 level, uint32 mapId, uint32 instanceId, float x, float y, float z, float o, uint8 bgId, bool temporary)
 -        : CombatBotBaseAI(),  m_race(race), m_class(class_), m_level(level), m_mapId(mapId), m_instanceId(instanceId), m_x(x), m_y(y), m_z(z), m_o(o), m_battlegroundId(bgId), m_temporary(temporary)
 +    BattleBotAI(uint8 race, uint8 class_, uint8 level, uint32 mapId, uint32 instanceId, float x, float y, float z, float o, uint8 bgId, bool temporary,
-+        bool outdoorRival = false, ObjectGuid outdoorTargetGuid = ObjectGuid(), uint32 outdoorLifetimeSeconds = 0)
++        bool outdoorRival = false, ObjectGuid outdoorTargetGuid = ObjectGuid(), uint32 outdoorLifetimeSeconds = 0, bool gurubashiArenaRival = false)
 +        : CombatBotBaseAI(),  m_race(race), m_class(class_), m_level(level), m_mapId(mapId), m_instanceId(instanceId), m_x(x), m_y(y), m_z(z), m_o(o), m_battlegroundId(bgId), m_temporary(temporary),
-+          m_outdoorRival(outdoorRival), m_outdoorTargetGuid(outdoorTargetGuid), m_outdoorRivalRemainingMs(outdoorLifetimeSeconds * 1000)
++          m_outdoorRival(outdoorRival), m_outdoorTargetGuid(outdoorTargetGuid), m_outdoorRivalRemainingMs(outdoorLifetimeSeconds * 1000), m_gurubashiArenaRival(gurubashiArenaRival)
      {
          m_updateTimer.Reset(2000);
      }
-@@ -60,6 +62,9 @@ public:
+@@ -60,6 +62,10 @@ public:
      bool AttackStart(Unit* pVictim);
      Unit* SelectAttackTarget(Unit* pExcept = nullptr) const;
      Unit* SelectFollowTarget() const;
 +    bool IsOutdoorRival() const { return m_outdoorRival; }
 +    bool IsOutdoorRivalFor(ObjectGuid targetGuid) const { return m_outdoorRival && m_outdoorTargetGuid == targetGuid; }
++    bool IsGurubashiArenaRival() const { return m_gurubashiArenaRival; }
 +    void CleanupOutdoorRival();
  
      void OnJustRevived();
      void OnJustDied();
-@@ -114,11 +119,20 @@ public:
+@@ -114,11 +120,22 @@ public:
      bool StartNewPathToPosition(Position const& position, std::vector<BattleBotPath*> const& vPaths);
      void ClearPath();
      void StopMoving();
 +    void UpdateOutdoorRivalAI(uint32 diff);
++    void UpdateGurubashiArenaRivalAI();
 +    void EndOutdoorRival();
      bool m_doingGraveyardJump = false;
      bool m_movingInReverse = false;
@@ -1059,6 +1139,7 @@ index b01ee2050..2a6c103ef 100644
 +    uint32 m_outdoorRivalRemainingMs = 0;
 +    bool m_outdoorTargetPvpApplied = false;
 +    bool m_outdoorTargetHadPvp = false;
++    bool m_gurubashiArenaRival = false;
  };
  
  #endif
@@ -1123,21 +1204,22 @@ index ca773b3ce..b7d8a537b 100644
  
      uint8 gender;
 diff --git a/src/game/PlayerBots/PlayerBotMgr.cpp b/src/game/PlayerBots/PlayerBotMgr.cpp
-index 4475bdc50..f11eb8fca 100644
+index 4475bdc50..aa5b8905c 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.cpp
 +++ b/src/game/PlayerBots/PlayerBotMgr.cpp
-@@ -18,6 +18,10 @@
+@@ -18,6 +18,11 @@
  #include "Language.h"
  #include "Utilities/Random.h"
  #include "Spell.h"
 +#include "Database/DBCEnums.h"
 +#include "Database/DBCStructure.h"
++#include "GameEventMgr.h"
 +
 +#include <sstream>
  
  INSTANTIATE_SINGLETON_1(PlayerBotMgr);
  
-@@ -35,12 +39,22 @@ PlayerBotMgr::PlayerBotMgr()
+@@ -35,12 +40,24 @@ PlayerBotMgr::PlayerBotMgr()
      m_confEnableRandomBots      = false;
      m_confDebug                 = false;
      m_confBattleBotAutoJoin     = false;
@@ -1150,6 +1232,7 @@ index 4475bdc50..f11eb8fca 100644
 +    m_confOutdoorRivalsDurationSeconds = 180;
 +    m_confOutdoorRivalsMaxActive = 1;
 +    m_confOutdoorRivalsDebug = false;
++    m_confGurubashiArenaRivalsEnable = true;
  
      // Time
      m_elapsedTime = 0;
@@ -1157,10 +1240,11 @@ index 4475bdc50..f11eb8fca 100644
      m_lastUpdate = 0;
      m_lastBattleBotQueueUpdate = 0;
 +    m_lastOutdoorRivalCheck = 0;
++    m_lastOutdoorRivalDebugCountdown = 0;
  }
  
  PlayerBotMgr::~PlayerBotMgr()
-@@ -58,6 +72,15 @@ void PlayerBotMgr::LoadConfig()
+@@ -58,6 +75,16 @@ void PlayerBotMgr::LoadConfig()
      m_confDebug = sConfig.GetBoolDefault("PlayerBot.Debug", false);
      m_confUpdateDiff = sConfig.GetIntDefault("PlayerBot.UpdateMs", 10000);
      m_confBattleBotAutoJoin = sConfig.GetBoolDefault("BattleBot.AutoJoin", false);
@@ -1173,10 +1257,11 @@ index 4475bdc50..f11eb8fca 100644
 +    m_confOutdoorRivalsDurationSeconds = std::max<uint32>(30, sConfig.GetIntDefault("Nostalgia.OutdoorRivals.DurationSeconds", 180));
 +    m_confOutdoorRivalsMaxActive = std::max<uint32>(1, sConfig.GetIntDefault("Nostalgia.OutdoorRivals.MaxActive", 1));
 +    m_confOutdoorRivalsDebug = sConfig.GetBoolDefault("Nostalgia.OutdoorRivals.Debug", false);
++    m_confGurubashiArenaRivalsEnable = sConfig.GetBoolDefault("Nostalgia.GurubashiArenaRivals.Enable", true);
  
      if (!sWorld.getConfig(CONFIG_BOOL_FORCE_LOGOUT_DELAY))
          m_tempBots.clear();
-@@ -70,6 +93,7 @@ void PlayerBotMgr::Load()
+@@ -70,6 +97,7 @@ void PlayerBotMgr::Load()
      m_bots.clear();
      m_tempBots.clear();
      m_totalChance = 0;
@@ -1184,7 +1269,28 @@ index 4475bdc50..f11eb8fca 100644
  
      // 2- Configuration
      LoadConfig();
-@@ -237,6 +261,9 @@ void PlayerBotMgr::Update(uint32 diff)
+@@ -219,6 +247,20 @@ void PlayerBotMgr::Update(uint32 diff)
+     }
+ 
+     m_elapsedTime += diff;
++    if (m_confOutdoorRivalsEnable && m_confOutdoorRivalsDebug && m_lastOutdoorRivalCheck)
++    {
++        time_t const now = sWorld.GetGameTime();
++        time_t const nextCheck = m_lastOutdoorRivalCheck + m_confOutdoorRivalsCheckSeconds;
++        if (now < nextCheck)
++        {
++            uint32 const remaining = uint32(nextCheck - now);
++            if ((remaining <= 5 || remaining % 10 == 0) && m_lastOutdoorRivalDebugCountdown != now)
++            {
++                m_lastOutdoorRivalDebugCountdown = now;
++                sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Rival-Debug] Naechste Rivalen-Pruefung in %u Sekunden.", remaining);
++            }
++        }
++    }
+     if (!((m_elapsedTime - m_lastUpdate) > m_confUpdateDiff))
+         return; // No need to update
+     m_lastUpdate = m_elapsedTime;
+@@ -237,6 +279,9 @@ void PlayerBotMgr::Update(uint32 diff)
              {
                  if (iter->second->ai && iter->second->ai->me)
                  {
@@ -1194,16 +1300,17 @@ index 4475bdc50..f11eb8fca 100644
                      if (!iter->second->ai->me->IsAlive())
                      {
                          // don't leave permanent corpse
-@@ -302,6 +329,8 @@ void PlayerBotMgr::Update(uint32 diff)
+@@ -302,6 +347,9 @@ void PlayerBotMgr::Update(uint32 diff)
          ++iter;
      }
  
 +    UpdateOutdoorRivals();
++    UpdateGurubashiArenaRivals();
 +
      if (m_confBattleBotAutoJoin && (m_lastBattleBotQueueUpdate <= (sWorld.GetGameTime() - 10)))
      {
          m_lastBattleBotQueueUpdate = sWorld.GetGameTime();
-@@ -392,19 +421,65 @@ bool PlayerBotMgr::AddOrRemoveBot()
+@@ -392,19 +440,65 @@ bool PlayerBotMgr::AddOrRemoveBot()
  
  }
  
@@ -1270,7 +1377,7 @@ index 4475bdc50..f11eb8fca 100644
  bool PlayerBotMgr::AddBot(uint32 playerGUID, bool chatBot, PlayerBotAI* pAI)
  {
      uint32 accountId = 0;
-@@ -623,6 +698,206 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
+@@ -623,6 +717,268 @@ void PlayerBotMgr::AddBattleBot(BattleGroundQueueTypeId queueType, Team botTeam,
      }
  }
  
@@ -1474,10 +1581,72 @@ index 4475bdc50..f11eb8fca 100644
 +    }
 +}
 +
++void PlayerBotMgr::AddGurubashiArenaRivals()
++{
++    // The Gurubashi chest event runs on the Eastern Kingdoms map. These three positions
++    // form a ring around the chest platform and keep every event round visually distinct.
++    static float const positions[3][4] =
++    {
++        { -13249.0f,  171.0f, 35.1f, 3.14f },
++        { -13272.0f,  180.0f, 35.1f, 4.71f },
++        { -13265.0f,  151.0f, 35.1f, 0.00f }
++    };
++    std::vector<uint32> availableClasses = { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_DRUID };
++    uint32 const instanceId = sMapMgr.GetContinentInstanceId(0, positions[0][0], positions[0][1]);
++
++    for (uint32 i = 0; i < 3 && !availableClasses.empty(); ++i)
++    {
++        uint32 const classIndex = urand(0, availableClasses.size() - 1);
++        uint8 const botClass = uint8(availableClasses[classIndex]);
++        availableClasses.erase(availableClasses.begin() + classIndex);
++
++        Team const botTeam = urand(0, 1) ? HORDE : ALLIANCE;
++        uint8 const botRace = SelectRandomRaceForClass(botClass, botTeam);
++        if (!botRace)
++            continue;
++
++        BattleBotAI* ai = new BattleBotAI(botRace, botClass, MAX_LEVEL, 0, instanceId, positions[i][0], positions[i][1], positions[i][2], positions[i][3],
++            BATTLEGROUND_QUEUE_NONE, true, false, ObjectGuid(), 0, true);
++        if (!AddBot(ai))
++            delete ai;
++    }
++
++    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Nostalgia] Gurubashi Arena chest active: 3 arena rivals added.");
++}
++
++void PlayerBotMgr::DeleteGurubashiArenaRivals()
++{
++    for (auto const& itr : m_bots)
++        if (BattleBotAI* battleBot = dynamic_cast<BattleBotAI*>(itr.second->ai.get()))
++            if (battleBot->IsGurubashiArenaRival())
++                itr.second->requestRemoval = true;
++}
++
++void PlayerBotMgr::UpdateGurubashiArenaRivals()
++{
++    static uint16 const GURUBASHI_ARENA_CHEST_EVENT = 16;
++    uint32 arenaRivalCount = 0;
++    for (auto const& itr : m_bots)
++        if (BattleBotAI const* battleBot = dynamic_cast<BattleBotAI const*>(itr.second->ai.get()))
++            if (battleBot->IsGurubashiArenaRival() && !itr.second->requestRemoval)
++                ++arenaRivalCount;
++
++    if (m_confGurubashiArenaRivalsEnable && sGameEventMgr.IsActiveEvent(GURUBASHI_ARENA_CHEST_EVENT))
++    {
++        if (!arenaRivalCount)
++            AddGurubashiArenaRivals();
++    }
++    else if (arenaRivalCount)
++    {
++        DeleteGurubashiArenaRivals();
++        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Nostalgia] Gurubashi Arena chest inactive: arena rivals removed.");
++    }
++}
++
  void PlayerBotMgr::DeleteBattleBots()
  {
      for (auto const& itr : m_bots)
-@@ -2038,3 +2313,63 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
+@@ -2038,3 +2394,63 @@ bool ChatHandler::HandleBattleBotShowAllPathsCommand(char* args)
      PSendSysMessage("Showing %u paths for battleground.", id);
      return true;
  }
@@ -1542,7 +1711,7 @@ index 4475bdc50..f11eb8fca 100644
 +
 +
 diff --git a/src/game/PlayerBots/PlayerBotMgr.h b/src/game/PlayerBots/PlayerBotMgr.h
-index a1067512a..cf8565c32 100644
+index a1067512a..72cec03b2 100644
 --- a/src/game/PlayerBots/PlayerBotMgr.h
 +++ b/src/game/PlayerBots/PlayerBotMgr.h
 @@ -79,8 +79,9 @@ class PlayerBotMgr
@@ -1571,11 +1740,14 @@ index a1067512a..cf8565c32 100644
          void DeleteBattleBots();
  
          void DeleteAll();
-@@ -108,6 +117,13 @@ class PlayerBotMgr
+@@ -108,6 +117,16 @@ class PlayerBotMgr
          PlayerBotStats& GetStats(){ return m_stats; }
          void Start() { m_confEnableRandomBots = true; }
      protected:
 +        void UpdateOutdoorRivals();
++        void UpdateGurubashiArenaRivals();
++        void AddGurubashiArenaRivals();
++        void DeleteGurubashiArenaRivals();
 +        bool CanSpawnOutdoorRivalFor(Player const* target, std::string* reason = nullptr) const;
 +        bool HasOutdoorRivalFor(ObjectGuid targetGuid) const;
 +        bool IsOutdoorRivalEnemyTerritory(Player const* target) const;
@@ -1585,15 +1757,16 @@ index a1067512a..cf8565c32 100644
          // How long since last update?
          uint32 m_elapsedTime;
          uint32 m_lastBotsRefresh;
-@@ -115,6 +131,7 @@ class PlayerBotMgr
+@@ -115,6 +134,8 @@ class PlayerBotMgr
          uint32 m_totalChance;
          uint32 m_maxAccountId;
          time_t m_lastBattleBotQueueUpdate;
 +        time_t m_lastOutdoorRivalCheck;
++        time_t m_lastOutdoorRivalDebugCountdown;
  
          std::map<uint64 /*pl guid*/, std::shared_ptr<PlayerBotEntry>> m_bots;
          std::map<uint32 /*account*/, uint32> m_tempBots;
-@@ -128,6 +145,16 @@ class PlayerBotMgr
+@@ -128,6 +149,17 @@ class PlayerBotMgr
          bool m_confDebug;
          bool m_confEnableRandomBots;
          bool m_confBattleBotAutoJoin;
@@ -1606,6 +1779,7 @@ index a1067512a..cf8565c32 100644
 +        uint32 m_confOutdoorRivalsDurationSeconds;
 +        uint32 m_confOutdoorRivalsMaxActive;
 +        bool m_confOutdoorRivalsDebug;
++        bool m_confGurubashiArenaRivalsEnable;
 +        std::map<ObjectGuid, time_t> m_outdoorRivalCooldowns;
  };
  
@@ -1658,7 +1832,7 @@ index 6b0be9092..8c45f5404 100644
      sAccountMgr.Update(diff);
  
 diff --git a/src/mangosd/mangosd.conf.dist.in b/src/mangosd/mangosd.conf.dist.in
-index 377024547..4bdc96ce3 100644
+index 377024547..8fce4dda7 100644
 --- a/src/mangosd/mangosd.conf.dist.in
 +++ b/src/mangosd/mangosd.conf.dist.in
 @@ -1160,6 +1160,26 @@ PetDefaultLoyalty = 1
@@ -1736,7 +1910,7 @@ index 377024547..4bdc96ce3 100644
  ###################################################################################################################
  RandomBot.Enable = 0
  RandomBot.MinBots = 0
-@@ -3019,6 +3080,16 @@ PartyBot.RandomGearLevelDifference = 10
+@@ -3019,6 +3080,24 @@ PartyBot.RandomGearLevelDifference = 10
  BattleBot.AutoEquip = 1
  BattleBot.AutoJoin = 0
  
@@ -1749,6 +1923,14 @@ index 377024547..4bdc96ce3 100644
 +Nostalgia.OutdoorRivals.DurationSeconds = 180
 +Nostalgia.OutdoorRivals.MaxActive = 1
 +Nostalgia.OutdoorRivals.Debug = 0
++
++#    Nostalgia.GurubashiArenaRivals.Enable
++#        Adds three free-for-all BattleBot rivals for the duration of the Gurubashi Arena chest event.
++#        The rivals despawn again when the chest event ends.
++#        Default: 1 - on
++#                 0 - off
++#
++Nostalgia.GurubashiArenaRivals.Enable = 1
 +
  ###################################################################################################################
  #    Mail flooding mitigation
