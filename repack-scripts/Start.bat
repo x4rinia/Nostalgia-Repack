@@ -20,6 +20,10 @@ if errorlevel 1 (
     echo       Laeuft bereits auf Port 3307.
 )
 
+echo       Setze Gurubashi-Arena auf volle Serverstunden...
+"%~dp0MariaDB\bin\mysql.exe" --protocol=tcp -h 127.0.0.1 -P 3307 -u vmangos --password=vmangos -D vmangos < "%~dp0database\custom\nostalgia_gurubashi_hourly.sql"
+if errorlevel 1 echo       Hinweis: Gurubashi-Zeitplanung konnte nicht gesetzt werden.
+
 echo [2/4] Loginserver...
 call :port_in_use 3724
 if errorlevel 1 (
