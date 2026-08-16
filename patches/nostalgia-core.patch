@@ -841,7 +841,7 @@ index 8e222ea2e..205288031 100644
          void _LoadQuestStatus(std::unique_ptr<QueryResult> result);
          void _LoadGroup(std::unique_ptr<QueryResult> result);
 diff --git a/src/game/PlayerBots/BattleBotAI.cpp b/src/game/PlayerBots/BattleBotAI.cpp
-index 0f9974c02..87b12da78 100644
+index 0f9974c02..470a879e7 100644
 --- a/src/game/PlayerBots/BattleBotAI.cpp
 +++ b/src/game/PlayerBots/BattleBotAI.cpp
 @@ -32,6 +32,7 @@
@@ -876,14 +876,14 @@ index 0f9974c02..87b12da78 100644
 +    botEntry->requestRemoval = true;
 +}
 +
-+void BattleBotAI::UpdateOutdoorRivalAI(uint32 diff)
++void BattleBotAI::UpdateOutdoorRivalAI(uint32 /*diff*/)
 +{
-+    if (m_outdoorRivalRemainingMs <= diff)
++    if (m_outdoorRivalRemainingMs <= BB_UPDATE_INTERVAL)
 +    {
 +        EndOutdoorRival();
 +        return;
 +    }
-+    m_outdoorRivalRemainingMs -= diff;
++    m_outdoorRivalRemainingMs -= BB_UPDATE_INTERVAL;
 +
 +    if (me->IsDead())
 +    {
