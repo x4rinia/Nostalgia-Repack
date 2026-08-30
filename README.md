@@ -58,6 +58,10 @@ Import `nostalgia_ambient_chat.sql` before `nostalgia_ambient_chat_who_factions.
 - Local PHP account and `.pdump` character-backup page
 - Custom Windows Server Launcher to manage database, core and web server
 
+<p align="center">
+  <img src="launcher/NostalgiaServerLauncher/Assets/NostalgiaServer.png" alt="Nostalgia Server Launcher" width="800">
+</p>
+
 ## Website and addon
 
 The PHP page is local-only by design. Install Apache and PHP separately, configure their paths for your machine, and point Apache's document root to `web/www`. The bundled scripts are Windows templates and must be adjusted to your own Repack folder layout.
