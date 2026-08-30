@@ -457,49 +457,92 @@ internal sealed class MainForm : Form
 
     private bool PromptAndKillExistingProcesses()
     {
-        var processNames = new[] { "mariadbd", "mysqld", "realmd", "mangosd" };
-        var runningProcesses = new List<Process>();
+        var processNames = new[] { "mariadbd", "mysqld", "realmd", "mangosd", "httpd", "php-cgi" };
+        var runningProcesses = new Dictionary<int, Process>();
 
+        // 1. Suche nach Namen
         foreach (var name in processNames)
         {
-            runningProcesses.AddRange(Process.GetProcessesByName(name));
+            foreach (var p in Process.GetProcessesByName(name))
+            {
+                runningProcesses[p.Id] = p;
+            }
         }
+
+        // 2. Suche nach belegten Ports (3307=DB, 3724=Realm, 8085=World, 8080=Web)
+        try
+        {
+            var ports = new[] { 3307, 3724, 8085, 8080 };
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "netstat",
+                Arguments = "-ano",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var netstat = Process.Start(startInfo);
+            if (netstat != null)
+            {
+                string output = netstat.StandardOutput.ReadToEnd();
+                netstat.WaitForExit();
+                var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 5 && parts[0] == "TCP")
+                    {
+                        string localAddress = parts[1];
+                        string pidStr = parts[4];
+                        foreach (int port in ports)
+                        {
+                            if (localAddress.EndsWith(":" + port) || localAddress.EndsWith("]" + port))
+                            {
+                                if (int.TryParse(pidStr, out int pid) && pid > 0 && pid != Process.GetCurrentProcess().Id)
+                                {
+                                    if (!runningProcesses.ContainsKey(pid))
+                                    {
+                                        try
+                                        {
+                                            runningProcesses[pid] = Process.GetProcessById(pid);
+                                        }
+                                        catch { }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
 
         if (runningProcesses.Count > 0)
         {
-            string processList = string.Join(", ", runningProcesses.Select(p => $"{p.ProcessName}.exe (PID {p.Id})"));
+            string processList = string.Join(", ", runningProcesses.Values.Select(p => $"{p.ProcessName}.exe (PID {p.Id})"));
             var result = MessageBox.Show(this,
-                $"Es laufen bereits Server-Prozesse:\n{processList}\n\nMöchtest du diese Prozesse beenden, um den Server starten zu können?",
+                $"Es laufen bereits Server-Prozesse oder Prozesse blockieren die nötigen Ports:\n{processList}\n\nMöchtest du diese Prozesse beenden, um den Server starten zu können?",
                 "Prozesse beenden",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
 
             if (result == DialogResult.Yes)
             {
-                foreach (var process in runningProcesses)
+                foreach (var process in runningProcesses.Values)
                 {
                     try
                     {
                         process.Kill();
                         process.WaitForExit(2000);
                     }
-                    catch
-                    {
-                        // Fehler ignorieren, ServerManager wird danach sowieso meckern, wenn sie noch da sind
-                    }
-                    finally
-                    {
-                        process.Dispose();
-                    }
+                    catch { }
+                    finally { process.Dispose(); }
                 }
                 return true;
             }
             else
             {
-                foreach (var process in runningProcesses)
-                {
-                    process.Dispose();
-                }
+                foreach (var process in runningProcesses.Values) process.Dispose();
                 return false;
             }
         }
