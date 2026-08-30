@@ -59,7 +59,7 @@ Import `nostalgia_ambient_chat.sql` before `nostalgia_ambient_chat_who_factions.
 - Custom Windows Server Launcher to manage database, core and web server
 
 <p align="center">
-  <img src="launcher-screenshot.png" alt="Nostalgia Server Launcher" width="800">
+  <img src="launcher-screenshot1.png" alt="Nostalgia Server Launcher" width="800">
 </p>
 
 ## Website and addon
