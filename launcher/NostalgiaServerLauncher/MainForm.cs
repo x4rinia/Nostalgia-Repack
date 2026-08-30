@@ -455,8 +455,64 @@ internal sealed class MainForm : Form
         }
     }
 
+    private bool PromptAndKillExistingProcesses()
+    {
+        var processNames = new[] { "mariadbd", "mysqld", "realmd", "mangosd" };
+        var runningProcesses = new List<Process>();
+
+        foreach (var name in processNames)
+        {
+            runningProcesses.AddRange(Process.GetProcessesByName(name));
+        }
+
+        if (runningProcesses.Count > 0)
+        {
+            string processList = string.Join(", ", runningProcesses.Select(p => $"{p.ProcessName}.exe (PID {p.Id})"));
+            var result = MessageBox.Show(this,
+                $"Es laufen bereits Server-Prozesse:\n{processList}\n\nMöchtest du diese Prozesse beenden, um den Server starten zu können?",
+                "Prozesse beenden",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result == DialogResult.Yes)
+            {
+                foreach (var process in runningProcesses)
+                {
+                    try
+                    {
+                        process.Kill();
+                        process.WaitForExit(2000);
+                    }
+                    catch
+                    {
+                        // Fehler ignorieren, ServerManager wird danach sowieso meckern, wenn sie noch da sind
+                    }
+                    finally
+                    {
+                        process.Dispose();
+                    }
+                }
+                return true;
+            }
+            else
+            {
+                foreach (var process in runningProcesses)
+                {
+                    process.Dispose();
+                }
+                return false;
+            }
+        }
+        return true;
+    }
+
     private async Task StartServerAsync()
     {
+        if (!PromptAndKillExistingProcesses())
+        {
+            return;
+        }
+
         SetBusy(true, "Server wird gestartet …");
         try
         {
