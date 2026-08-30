@@ -17,6 +17,7 @@ This repository is a **build package**, not a World of Warcraft distribution. It
 - `addons/xbot/` – optional XBot addon source
 - `web/www/` – local PHP management page and Nostalgia artwork
 - `repack-scripts/` – Start, Stop and web server scripts as templates
+- `launcher/` – C# Windows Launcher to easily start and manage the server processes
 
 ## Core build
 
@@ -55,6 +56,7 @@ Import `nostalgia_ambient_chat.sql` before `nostalgia_ambient_chat_who_factions.
 - Transmogger NPCs in Stormwind and Orgrimmar
 - 10-player Stratholme, Scholomance, Blackrock Depths and Maraudon
 - Local PHP account and `.pdump` character-backup page
+- Custom Windows Server Launcher to manage database, core and web server
 
 ## Website and addon
 
