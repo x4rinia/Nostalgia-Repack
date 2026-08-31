@@ -1,4 +1,5 @@
 -- DinoControllerHUD.lua – Controller-HUD mit 12-Slot Actionbar & ClassMode
+-- Author: x4rinia
 -- Vanilla 1.12.1 stellt 120 ActionSlots bereit.
 -- Die 4 D-Pad-Slots bedienen die untere WoW-Actionbar (Slots 1–12):
 --   Ohne Modifier: Slots 1–4

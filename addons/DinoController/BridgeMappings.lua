@@ -1,4 +1,5 @@
 -- Automatisch von DinoControllerBridge.exe erzeugt; JSON ist die Quelle.
+-- Author: x4rinia
 DinoControllerBridgeConfig = {
     Enabled = 1,
     ButtonMappings = {

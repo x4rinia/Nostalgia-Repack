@@ -1,4 +1,5 @@
 -- DinoController - WoW-seitige Komfortfunktionen fuer Vanilla 1.12.1.
+-- Author: x4rinia
 -- XInput, Cursor-Automatik und Tastatur/Maus-Ausgabe bleiben in der Bridge.
 
 DinoControllerDB = DinoControllerDB or {}

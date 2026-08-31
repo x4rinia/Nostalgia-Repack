@@ -1,4 +1,4 @@
-# DinoController 0.3.5 / Bridge 0.2.10
+# DinoController 1.0.0 / Bridge 1.0.0
 
 DinoController ist eine kleine Controller-Loesung fuer den originalen
 WoW-Client 1.12.1. Sie besteht bewusst nur aus einem normalen Vanilla-Addon,
@@ -34,9 +34,11 @@ Maus werden nicht blockiert.
 4. WoW ueber den Nostalgia-Launcher starten oder die Bridge vor WoW manuell
    ausfuehren.
 
-Beim Start schreibt die Bridge die JSON-Buttonbelegung nach
-`client/Interface/AddOns/DinoController/BridgeMappings.lua`. Nach einer
-JSON-Aenderung muessen Bridge und WoW neu gestartet werden.
+Beim Start schreibt die Bridge die JSON-Buttonbelegung in den gefundenen
+`Interface/AddOns/DinoController`-Ordner. Dabei werden das Standalone-Layout,
+ein lokaler `client`-Unterordner und das bestehende `tools`-/`client`-Layout
+unterstuetzt. Nach einer JSON-Aenderung muessen Bridge und WoW neu gestartet
+werden.
 
 ## Grundsteuerung
 

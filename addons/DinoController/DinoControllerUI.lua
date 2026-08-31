@@ -1,4 +1,5 @@
 -- DinoController Phase 2.5 - aufloesungsunabhaengige Controller-Navigation
+-- Author: x4rinia
 -- fuer originale Vanilla-Frames. Es werden ausschliesslich echte, sichtbare
 -- WoW-Buttons aus FrameXML angesprochen; feste Bildschirmkoordinaten gibt es
 -- nicht.

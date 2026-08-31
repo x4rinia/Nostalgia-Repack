@@ -4,7 +4,7 @@ namespace DinoControllerBridge;
 
 internal static class Program
 {
-    private const string MutexName = "Local\\Nostalgia-DinoControllerBridge-270F4F16-5194-4577-AD7D-85800C2274BB";
+    private const string MutexName = "Local\\DinoControllerBridge-270F4F16-5194-4577-AD7D-85800C2274BB";
 
     private static int Main(string[] args)
     {

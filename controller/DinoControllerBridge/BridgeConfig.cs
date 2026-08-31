@@ -86,14 +86,14 @@ internal sealed class BridgeConfig
 
     public void WriteAddonSnapshot(string bridgeDirectory)
     {
-        string addonDirectory = Path.GetFullPath(Path.Combine(
-            bridgeDirectory, "..", "client", "Interface", "AddOns", "DinoController"));
-        if (!Directory.Exists(addonDirectory))
+        string? addonDirectory = FindAddonDirectory(bridgeDirectory);
+        if (addonDirectory is null)
             return;
 
         string path = Path.Combine(addonDirectory, "BridgeMappings.lua");
         var lua = new StringBuilder();
         lua.AppendLine("-- Automatisch von DinoControllerBridge.exe erzeugt; JSON ist die Quelle.");
+        lua.AppendLine("-- Author: x4rinia");
         lua.AppendLine("DinoControllerBridgeConfig = {");
         lua.AppendLine($"    Enabled = {(Enabled ? 1 : 0)},");
         lua.AppendLine("    ButtonMappings = {");
@@ -107,6 +107,27 @@ internal sealed class BridgeConfig
         lua.AppendLine("    }");
         lua.AppendLine("}");
         File.WriteAllText(path, lua.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
+
+    private static string? FindAddonDirectory(string bridgeDirectory)
+    {
+        string[] candidates =
+        [
+            // Standalone release: EXE liegt direkt neben dem Interface-Ordner.
+            Path.Combine(bridgeDirectory, "Interface", "AddOns", "DinoController"),
+            // Alternative: EXE und Client-Unterordner liegen im selben Verzeichnis.
+            Path.Combine(bridgeDirectory, "client", "Interface", "AddOns", "DinoController"),
+            // Kompatibles tools-Layout: EXE liegt in einem Unterordner neben client.
+            Path.Combine(bridgeDirectory, "..", "client", "Interface", "AddOns", "DinoController")
+        ];
+
+        foreach (string candidate in candidates)
+        {
+            string fullPath = Path.GetFullPath(candidate);
+            if (Directory.Exists(fullPath))
+                return fullPath;
+        }
+        return null;
     }
 
     private void MergeMappingDefaults()

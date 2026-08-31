@@ -15,7 +15,8 @@ This repository is a **build package**, not a World of Warcraft distribution. It
 - `patches/nostalgia-core.patch` – Nostalgia changes for vMaNGOS Core
 - `database/custom/` – SQL files for world, character and login databases
 - `addons/xbot/` – optional XBot addon source
-- `addons/DinoController/` and `controller/` – minimal Vanilla controller addon and XInput bridge
+- `addons/DinoController/` and `controller/` – Vanilla controller addon and XInput bridge
+- `addons/DinoMacroManager/` – standalone 14-slot spell-chain addon for Vanilla 1.12.1
 - `web/www/` – local PHP management page and Nostalgia artwork
 - `repack-scripts/` – Start, Stop and web server scripts as templates
 - `launcher/` – C# Windows Launcher to easily start and manage the server processes
@@ -68,7 +69,9 @@ Import `nostalgia_ambient_chat.sql` before `nostalgia_ambient_chat_who_factions.
 
 The PHP page is local-only by design. Install Apache and PHP separately, configure their paths for your machine, and point Apache's document root to `web/www`. The bundled scripts are Windows templates and must be adjusted to your own Repack folder layout.
 
-Copy `addons/xbot` to `Interface/AddOns/xbot` in a compatible Vanilla client. No client files are included here.
+Copy `addons/xbot`, `addons/DinoController`, or `addons/DinoMacroManager` to the
+matching directory below `Interface/AddOns` in a compatible Vanilla client.
+No client files are included here.
 
 ## DinoController
 
@@ -106,6 +109,23 @@ in the background before launching WoW and stops its child process when the
 launcher closes. Keyboard and mouse remain usable. Full controls, configuration
 and technical boundaries are documented in
 [`controller/README.md`](controller/README.md).
+
+## DinoMacroManager
+
+DinoMacroManager is a standalone WoW Vanilla 1.12.1 addon and does not depend
+on DinoController. It provides 14 configurable spell chains with two to four
+spells each, spellbook drag and drop, individual inactivity timers, optional
+target-change resets, next-spell cooldown overlays, key bindings, and macros
+that can be dragged onto the original Blizzard action bar.
+
+Copy `addons/DinoMacroManager` to
+`Interface/AddOns/DinoMacroManager` and use `/dmm` in game. The public
+integration function `DinoMacroManager_ExecuteSlot(slot)` executes exactly one
+step for slots 1 through 14.
+
+Standalone source and ready-to-use release packages for both addons are also
+available in the
+[Dino WoW 1.12.1 Addons repository](https://github.com/x4rinia/Dino-WoW-1.12.1-Addons).
 
 ## Notes
 

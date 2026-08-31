@@ -1,0 +1,16 @@
+<Bindings>
+    <Binding name="DMM_SLOT_1" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(1);</Binding>
+    <Binding name="DMM_SLOT_2" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(2);</Binding>
+    <Binding name="DMM_SLOT_3" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(3);</Binding>
+    <Binding name="DMM_SLOT_4" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(4);</Binding>
+    <Binding name="DMM_SLOT_5" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(5);</Binding>
+    <Binding name="DMM_SLOT_6" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(6);</Binding>
+    <Binding name="DMM_SLOT_7" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(7);</Binding>
+    <Binding name="DMM_SLOT_8" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(8);</Binding>
+    <Binding name="DMM_SLOT_9" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(9);</Binding>
+    <Binding name="DMM_SLOT_10" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(10);</Binding>
+    <Binding name="DMM_SLOT_11" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(11);</Binding>
+    <Binding name="DMM_SLOT_12" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(12);</Binding>
+    <Binding name="DMM_SLOT_13" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(13);</Binding>
+    <Binding name="DMM_SLOT_14" header="DINOMACROMANAGER">DinoMacroManager_TriggerSlot(14);</Binding>
+</Bindings>

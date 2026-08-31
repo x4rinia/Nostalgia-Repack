@@ -1,0 +1,9 @@
+## Interface: 11200
+## Title: DinoMacroManager
+## Notes: WoW Vanilla 1.12.1. Oeffnen mit /dmm. 14 eigenstaendige Zauberketten.
+## Author: x4rinia
+## Version: 1.0.0
+## SavedVariablesPerCharacter: DinoMacroManagerDB
+
+DinoMacroManager.lua
+Bindings.xml

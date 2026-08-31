@@ -1,8 +1,8 @@
 ## Interface: 11200
 ## Title: DinoController
-## Notes: Kleine WoW-1.12.1-Ergaenzung fuer den DinoController-Prototyp - /dino öffnet menü
-## Author: Xarinia
-## Version: 0.3.5
+## Notes: WoW Vanilla 1.12.1. Oeffnen mit /dino. Controller/HUD; DinoMacroManager-Makros werden unterstuetzt.
+## Author: x4rinia
+## Version: 1.0.0
 ## SavedVariables: DinoControllerDB
 ## SavedVariablesPerCharacter: DinoControllerHUDDB
 
