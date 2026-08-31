@@ -14,6 +14,8 @@ internal static class NativeMethods
     internal const uint HANDLE_FLAG_INHERIT = 0x00000001;
     internal const uint CTRL_C_EVENT = 0;
     internal const uint CTRL_BREAK_EVENT = 1;
+    internal const uint WM_VSCROLL = 0x0115;
+    internal const int SB_BOTTOM = 7;
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct SecurityAttributes
@@ -109,4 +111,7 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool ShowWindow(IntPtr window, int command);
+
+    [DllImport("user32.dll")]
+    internal static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 }

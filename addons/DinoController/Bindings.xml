@@ -26,6 +26,9 @@
     <Binding name="DINOCONTROLLER_UI_CANCEL" hidden="true">
         DinoController_UICancel();
     </Binding>
+    <Binding name="DINOCONTROLLER_PRIMARY_ACTION" hidden="true" runOnUp="true">
+        DinoController_ExecutePrimaryAction(keystate);
+    </Binding>
     <Binding name="DINOCONTROLLER_X_ACTION" hidden="true">
         DinoController_ExecuteXAction();
     </Binding>
@@ -37,6 +40,9 @@
     </Binding>
     <Binding name="DINOCONTROLLER_TARGET_GROUP_PREVIOUS" hidden="true">
         DinoController_TargetGroup(-1);
+    </Binding>
+    <Binding name="DINOCONTROLLER_BOT_ATTACK" hidden="true">
+        DinoController_BotAttack();
     </Binding>
     <Binding name="DINOHUD_ACTION1" hidden="true">
         DinoHUD_Action1();

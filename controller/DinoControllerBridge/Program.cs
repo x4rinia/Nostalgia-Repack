@@ -54,8 +54,8 @@ internal static class Program
 
     private static int Run(BridgeConfig config, string logPath)
     {
-        var mapper = new ControllerMapper(config);
         using var cursor = new CursorVisibilityController(config);
+        var mapper = new ControllerMapper(config, cursor.ReassertHiddenAfterCursorMove);
         bool sawWow = false;
         bool wowRunning = false;
         bool controllerConnected = false;

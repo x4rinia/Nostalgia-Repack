@@ -24,6 +24,7 @@ internal static class NativeMethods
     internal const ushort VK_ALT = 0x12;
     internal const ushort VK_ESCAPE = 0x1B;
     internal const ushort VK_F11 = 0x7A;
+    internal const ushort VK_F12 = 0x7B;
     internal const ushort VK_NUMPAD0 = 0x60;
     internal const ushort VK_NUMPAD1 = 0x61;
     internal const ushort VK_NUMPAD2 = 0x62;
@@ -73,7 +74,14 @@ internal static class NativeMethods
     internal static extern bool SetCursorPos(int x, int y);
 
     [DllImport("user32.dll")]
+    internal static extern bool GetCursorPos(out Point point);
+
+    [DllImport("user32.dll")]
     internal static extern int ShowCursor(bool show);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorInfo(ref CursorInfo cursorInfo);
 
     [DllImport("user32.dll")]
     internal static extern IntPtr GetDC(IntPtr hWnd);
@@ -98,6 +106,12 @@ internal static class NativeMethods
         {
             return XInputGetState910((uint)index, out state) == 0;
         }
+    }
+
+    internal static bool IsCursorVisible()
+    {
+        var info = new CursorInfo { Size = Marshal.SizeOf<CursorInfo>() };
+        return GetCursorInfo(ref info) && (info.Flags & 0x00000001) != 0;
     }
 
     internal static void SendKey(ushort virtualKey, bool down)
@@ -169,6 +183,15 @@ internal static class NativeMethods
     {
         internal uint PacketNumber;
         internal XInputGamepad Gamepad;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CursorInfo
+    {
+        internal int Size;
+        internal uint Flags;
+        internal IntPtr Cursor;
+        internal Point ScreenPosition;
     }
 
     [StructLayout(LayoutKind.Sequential)]

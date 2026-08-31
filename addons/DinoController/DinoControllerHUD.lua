@@ -33,6 +33,11 @@ local hudUpdateElapsed = 0
 local l2Held = false
 local r2Held = false
 local lastMod = nil
+local actionbarGroups = {}
+local actionbarSlot13 = nil
+local actionbarSlot14 = nil
+local flashSlot13Until = nil
+local flashSlot14Until = nil
 
 function DinoHUD_UpdateLabels()
     if DinoControllerDB and DinoControllerDB.swapAB == 1 then
@@ -88,7 +93,25 @@ local function UpdateAllButtons()
     end
 end
 
+function DinoHUD_RefreshPrimaryAction()
+    DinoHUD_UpdateLabels()
+    UpdateAllButtons()
+end
+
 function DinoHUD_GetPageOffset()
+    local layout = (DinoControllerDB and DinoControllerDB.dpadLayout) or "Standard"
+
+    if layout == "Mitte" then
+        if r2Held and l2Held then
+            return (lastMod == "R2") and 8 or 0
+        elseif r2Held then
+            return 8
+        elseif l2Held then
+            return 0
+        end
+        return 4
+    end
+
     if r2Held and l2Held then
         return (lastMod == "R2") and 8 or 4
     elseif r2Held then
@@ -108,6 +131,9 @@ function DinoHUD_UpdateActivePage()
         end
     end
     UpdateAllButtons()
+    if DinoHUD_UpdateActionbarHighlights then
+        DinoHUD_UpdateActionbarHighlights()
+    end
 end
 
 function DinoHUD_SetModifier(mod, isDown)
@@ -119,6 +145,147 @@ function DinoHUD_SetModifier(mod, isDown)
         if isDown then lastMod = "R2" end
     end
     DinoHUD_UpdateActivePage()
+end
+
+local function CreateActionbarHighlight(name)
+    local frame = CreateFrame("Frame", name, UIParent)
+    frame:SetFrameStrata("HIGH")
+    frame:EnableMouse(false)
+    frame:SetBackdrop({
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 22,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    })
+    frame:Hide()
+    return frame
+end
+
+local function EnsureActionbarHighlights()
+    if not actionbarGroups[1] then
+        actionbarGroups[1] = CreateActionbarHighlight("DinoControllerGroupFrame1")
+        actionbarGroups[2] = CreateActionbarHighlight("DinoControllerGroupFrame2")
+        actionbarGroups[3] = CreateActionbarHighlight("DinoControllerGroupFrame3")
+        actionbarSlot13 = CreateActionbarHighlight("DinoControllerGroupFrameSlot13")
+        actionbarSlot14 = CreateActionbarHighlight("DinoControllerGroupFrameSlot14")
+    end
+end
+
+local function HideAllActionbarHighlights()
+    local index
+    for index = 1, 3 do
+        if actionbarGroups[index] then
+            actionbarGroups[index]:Hide()
+        end
+    end
+    if actionbarSlot13 then actionbarSlot13:Hide() end
+    if actionbarSlot14 then actionbarSlot14:Hide() end
+end
+
+function DinoHUD_UpdateActionbarHighlights()
+    EnsureActionbarHighlights()
+
+    if not DinoControllerDB or DinoControllerDB.controllerEnabled ~= 1 then
+        HideAllActionbarHighlights()
+        return
+    end
+
+    local page = CURRENT_ACTIONBAR_PAGE or 1
+    local index
+
+    if page == 1 then
+        if actionbarSlot13 then actionbarSlot13:Hide() end
+        if actionbarSlot14 then actionbarSlot14:Hide() end
+
+        for index = 1, 3 do
+            local startSlot = ((index - 1) * 4) + 1
+            local endSlot = startSlot + 3
+            local startBtn = getglobal("ActionButton" .. startSlot)
+            local endBtn = getglobal("ActionButton" .. endSlot)
+
+            if startBtn and endBtn and actionbarGroups[index] then
+                local frame = actionbarGroups[index]
+                frame:ClearAllPoints()
+                frame:SetPoint("TOPLEFT", startBtn, "TOPLEFT", -8, 8)
+                frame:SetPoint("BOTTOMRIGHT", endBtn, "BOTTOMRIGHT", 8, -8)
+
+                local offset = DinoHUD_GetPageOffset()
+                local activeGroup = 1
+                if offset == 4 then
+                    activeGroup = 2
+                elseif offset == 8 then
+                    activeGroup = 3
+                end
+
+                if index == activeGroup then
+                    frame:SetBackdropBorderColor(0.2, 0.9, 0.4, 1.0)
+                    frame:SetAlpha(1.0)
+                else
+                    frame:SetBackdropBorderColor(0.2, 0.5, 0.8, 0.5)
+                    frame:SetAlpha(0.6)
+                end
+
+                frame:Show()
+            elseif actionbarGroups[index] then
+                actionbarGroups[index]:Hide()
+            end
+        end
+        return
+    end
+
+    for index = 1, 3 do
+        if actionbarGroups[index] then
+            actionbarGroups[index]:Hide()
+        end
+    end
+
+    if page == 2 then
+        local button1 = getglobal("ActionButton1")
+        local button2 = getglobal("ActionButton2")
+
+        if button1 and actionbarSlot13 then
+            actionbarSlot13:ClearAllPoints()
+            actionbarSlot13:SetPoint("TOPLEFT", button1, "TOPLEFT", -8, 8)
+            actionbarSlot13:SetPoint("BOTTOMRIGHT", button1, "BOTTOMRIGHT", 8, -8)
+            if flashSlot13Until and GetTime() < flashSlot13Until then
+                actionbarSlot13:SetBackdropBorderColor(0.2, 0.6, 1.0, 1.0)
+            else
+                actionbarSlot13:SetBackdropBorderColor(0.2, 0.9, 0.4, 1.0)
+            end
+            actionbarSlot13:SetAlpha(1.0)
+            actionbarSlot13:Show()
+        elseif actionbarSlot13 then
+            actionbarSlot13:Hide()
+        end
+
+        if button2 and actionbarSlot14 then
+            actionbarSlot14:ClearAllPoints()
+            actionbarSlot14:SetPoint("TOPLEFT", button2, "TOPLEFT", -8, 8)
+            actionbarSlot14:SetPoint("BOTTOMRIGHT", button2, "BOTTOMRIGHT", 8, -8)
+            if flashSlot14Until and GetTime() < flashSlot14Until then
+                actionbarSlot14:SetBackdropBorderColor(0.2, 0.6, 1.0, 1.0)
+            else
+                actionbarSlot14:SetBackdropBorderColor(0.2, 0.9, 0.4, 1.0)
+            end
+            actionbarSlot14:SetAlpha(1.0)
+            actionbarSlot14:Show()
+        elseif actionbarSlot14 then
+            actionbarSlot14:Hide()
+        end
+        return
+    end
+
+    if actionbarSlot13 then actionbarSlot13:Hide() end
+    if actionbarSlot14 then actionbarSlot14:Hide() end
+end
+
+function DinoHUD_TriggerFlashSlot13()
+    flashSlot13Until = GetTime() + 0.2
+    DinoHUD_UpdateActionbarHighlights()
+end
+
+function DinoHUD_TriggerFlashSlot14()
+    flashSlot14Until = GetTime() + 0.2
+    DinoHUD_UpdateActionbarHighlights()
 end
 
 -- =========================================================================
@@ -324,9 +491,10 @@ local function CreateHUDButton(parent, slotInfo, index)
         end
 
         if self.dinoSlotInfo.id == 7 then
-            -- A-Taste: AutoHit / Interact
+            -- A-Taste: ausgewaehlte Primaeraktion / Interaktion
+            local actionInfo = DinoController_GetPrimaryActionInfo and DinoController_GetPrimaryActionInfo()
             if self.icon then
-                self.icon:SetTexture("Interface\\Icons\\Ability_MeleeDamage")
+                self.icon:SetTexture(actionInfo and actionInfo.texture or "Interface\\Icons\\Ability_MeleeDamage")
                 self.icon:Show()
                 self.icon:SetVertexColor(1.0, 1.0, 1.0)
             end
@@ -449,6 +617,13 @@ local function CreateHUDButton(parent, slotInfo, index)
         if this.dinoSlotInfo.id == 8 then
             DinoController_ExecuteYAction()
             this:UpdateDisplay()
+            return
+        end
+        if this.dinoSlotInfo.id == 7 then
+            local actionInfo = DinoController_GetPrimaryActionInfo and DinoController_GetPrimaryActionInfo()
+            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+            GameTooltip:SetText((actionInfo and actionInfo.label or "Nahkampf") .. " / Interaktion", 1.0, 1.0, 1.0)
+            GameTooltip:Show()
             return
         end
 
@@ -629,6 +804,7 @@ local function CreateHUDFrame()
     hudLocked = (DinoControllerHUDDB.hudLocked == 1)
     UpdateHUDLockState()
     DinoHUD_UpdateLabels()
+    DinoHUD_UpdateActivePage()
 end
 
 -- =========================================================================
@@ -678,6 +854,9 @@ function DinoHUD_ToggleLock()
 end
 
 function DinoHUD_UpdateVisibility()
+    if DinoHUD_UpdateActionbarHighlights then
+        DinoHUD_UpdateActionbarHighlights()
+    end
     if not hudFrame then return end
     if DinoControllerDB and DinoControllerDB.controllerEnabled == 1 and DinoControllerHUDDB and DinoControllerHUDDB.hudVisible == 1 then
         hudFrame:Show()
@@ -706,6 +885,7 @@ end
 
 function DinoHUD_UseMount()
     if DinoController_IsUIModeActive and DinoController_IsUIModeActive() then return end
+    DinoHUD_TriggerFlashSlot14()
     local slot = DinoHUD_GetMountActionSlot()
     if slot and HasAction(slot) then
         UseAction(slot)
@@ -742,10 +922,27 @@ hudUpdateFrame:SetScript("OnUpdate", function()
     hudUpdateElapsed = hudUpdateElapsed + arg1
     if hudUpdateElapsed < HUD_UPDATE_INTERVAL then return end
     hudUpdateElapsed = 0
+
+    local now = GetTime()
+    local clearedFlash = nil
+    if flashSlot13Until and now >= flashSlot13Until then
+        flashSlot13Until = nil
+        clearedFlash = 1
+    end
+    if flashSlot14Until and now >= flashSlot14Until then
+        flashSlot14Until = nil
+        clearedFlash = 1
+    end
+
+    if clearedFlash and DinoHUD_UpdateActionbarHighlights then
+        DinoHUD_UpdateActionbarHighlights()
+    end
+
     UpdateAllButtons()
 end)
 
 hudUpdateFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+hudUpdateFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
 hudUpdateFrame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
 hudUpdateFrame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
 hudUpdateFrame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
@@ -755,6 +952,7 @@ hudUpdateFrame:RegisterEvent("UNIT_INVENTORY_CHANGED")
 hudUpdateFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 hudUpdateFrame:RegisterEvent("UPDATE_SHAPESHIFT_FORMS")
 hudUpdateFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+hudUpdateFrame:RegisterEvent("UI_SCALE_CHANGED")
 
 hudUpdateFrame:SetScript("OnEvent", function()
     if event == "PLAYER_ENTERING_WORLD" then
@@ -773,6 +971,10 @@ hudUpdateFrame:SetScript("OnEvent", function()
                 hudFrame:Hide()
             end
         end
+        DinoHUD_UpdateActivePage()
+    end
+    if DinoHUD_UpdateActionbarHighlights then
+        DinoHUD_UpdateActionbarHighlights()
     end
     UpdateAllButtons()
 end)

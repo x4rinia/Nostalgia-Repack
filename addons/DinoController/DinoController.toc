@@ -4,7 +4,7 @@
 ## Author: x4rinia
 ## Version: 1.0.0
 ## SavedVariables: DinoControllerDB
-## SavedVariablesPerCharacter: DinoControllerHUDDB
+## SavedVariablesPerCharacter: DinoControllerHUDDB, DinoControllerCharacterDB
 
 BridgeMappings.lua
 DinoController.lua

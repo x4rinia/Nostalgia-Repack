@@ -775,7 +775,9 @@ internal sealed class MainForm : Form
 
     private void QueueLog(string line)
     {
-        _pendingLogLines.Enqueue(line);
+        // Ein BEL-Steuerzeichen aus umgeleiteten Konsolenausgaben darf nicht
+        // als Windows-Systemton bis zur RichEdit-Loganzeige gelangen.
+        _pendingLogLines.Enqueue(line.Replace("\a", string.Empty));
     }
 
     private void FlushPendingLogs()
@@ -794,8 +796,14 @@ internal sealed class MainForm : Form
         TrimLog();
         if (wasAtEnd)
         {
-            _logBox.SelectionStart = _logBox.TextLength;
-            _logBox.ScrollToCaret();
+            // Ohne Caret-/Fokuswechsel ans Ende scrollen. RichEdit kann beim
+            // Bewegen des Carets in einer schreibgeschuetzten Box sonst den
+            // Windows-Hinweiston ausloesen.
+            NativeMethods.SendMessage(
+                _logBox.Handle,
+                NativeMethods.WM_VSCROLL,
+                new IntPtr(NativeMethods.SB_BOTTOM),
+                IntPtr.Zero);
         }
     }
 

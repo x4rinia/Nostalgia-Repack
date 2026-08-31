@@ -214,13 +214,13 @@ local characterSlots = {
 }
 
 local function AddCharacter(elements)
+    AddContainers(elements, "RightButton")
     local index
     for index = 1, table.getn(characterSlots) do
         AddButton(elements, characterSlots[index])
     end
     AddRange(elements, "CharacterFrameTab", 1, 4)
     AddButton(elements, "CharacterFrameCloseButton")
-    AddContainers(elements, "RightButton")
 end
 
 local function AddQuestLog(elements)

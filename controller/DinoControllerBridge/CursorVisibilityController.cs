@@ -7,10 +7,10 @@ internal sealed class CursorVisibilityController : IDisposable
 {
     private readonly bool _enabled;
     private readonly long _hideDelayTicks;
+    private readonly long _syntheticCursorIgnoreTicks = Stopwatch.Frequency / 4;
     private readonly PhysicalMouseMonitor? _mouseMonitor;
     private long _lastControllerInput;
     private bool _hidden;
-    private int _showCursorAdjustments;
 
     public CursorVisibilityController(BridgeConfig config)
     {
@@ -34,6 +34,22 @@ internal sealed class CursorVisibilityController : IDisposable
         Hide();
     }
 
+    // SetCursorPos erzeugt im WoW-Client ein echtes Mausbewegungsereignis.
+    // Der Client kann den Cursor dadurch trotz der vorherigen Ausblendung
+    // wieder einschalten. Direkt nach dem Zentrieren wird der Windows-
+    // Sichtbarkeitszaehler deshalb noch einmal sicher unter null gebracht.
+    public void ReassertHiddenAfterCursorMove()
+    {
+        if (!_enabled)
+            return;
+
+        _lastControllerInput = Stopwatch.GetTimestamp();
+        _mouseMonitor?.IgnoreUntil(_lastControllerInput + _syntheticCursorIgnoreTicks);
+        if (!NativeMethods.IsCursorVisible())
+            return;
+        Hide(force: true);
+    }
+
     public void Update(bool controllerModeActive, bool controllerInput)
     {
         if (!_enabled || !controllerModeActive)
@@ -46,7 +62,7 @@ internal sealed class CursorVisibilityController : IDisposable
         if (controllerInput)
         {
             _lastControllerInput = now;
-            Hide();
+            Hide(force: NativeMethods.IsCursorVisible());
             return;
         }
 
@@ -63,19 +79,19 @@ internal sealed class CursorVisibilityController : IDisposable
         _mouseMonitor?.Dispose();
     }
 
-    private void Hide()
+    private void Hide(bool force = false)
     {
-        if (_hidden)
+        if (_hidden && !force)
             return;
 
-        _showCursorAdjustments = 0;
+        int adjustments = 0;
         int result;
         do
         {
             result = NativeMethods.ShowCursor(false);
-            _showCursorAdjustments++;
+            adjustments++;
         }
-        while (result >= 0 && _showCursorAdjustments < 16);
+        while (result >= 0 && adjustments < 16);
         _hidden = true;
     }
 
@@ -84,11 +100,20 @@ internal sealed class CursorVisibilityController : IDisposable
         if (!_hidden)
             return;
 
-        while (_showCursorAdjustments > 0)
+        if (NativeMethods.IsCursorVisible())
         {
-            NativeMethods.ShowCursor(true);
-            _showCursorAdjustments--;
+            _hidden = false;
+            return;
         }
+
+        int adjustments = 0;
+        int result;
+        do
+        {
+            result = NativeMethods.ShowCursor(true);
+            adjustments++;
+        }
+        while (result < 0 && adjustments < 16);
         _hidden = false;
     }
 
@@ -105,6 +130,7 @@ internal sealed class CursorVisibilityController : IDisposable
         private IntPtr _hook;
         private uint _threadId;
         private long _lastPhysicalInput;
+        private long _ignoreUntil;
         private bool _disposed;
 
         internal PhysicalMouseMonitor()
@@ -121,6 +147,11 @@ internal sealed class CursorVisibilityController : IDisposable
 
         internal bool Available => _hook != IntPtr.Zero;
         internal long LastPhysicalInput => Interlocked.Read(ref _lastPhysicalInput);
+
+        internal void IgnoreUntil(long timestamp)
+        {
+            Interlocked.Exchange(ref _ignoreUntil, timestamp);
+        }
 
         public void Dispose()
         {
@@ -161,8 +192,9 @@ internal sealed class CursorVisibilityController : IDisposable
             if (code == HC_ACTION)
             {
                 MouseHookData input = Marshal.PtrToStructure<MouseHookData>(data);
-                if ((input.Flags & LLMHF_INJECTED) == 0)
-                    Interlocked.Exchange(ref _lastPhysicalInput, Stopwatch.GetTimestamp());
+                long now = Stopwatch.GetTimestamp();
+                if ((input.Flags & LLMHF_INJECTED) == 0 && now > Interlocked.Read(ref _ignoreUntil))
+                    Interlocked.Exchange(ref _lastPhysicalInput, now);
             }
             return CallNextHookEx(_hook, code, message, data);
         }

@@ -5,19 +5,24 @@ namespace DinoControllerBridge;
 internal sealed class ControllerMapper
 {
     private readonly BridgeConfig _config;
+    private readonly Action _cursorMoved;
     private readonly HashSet<ushort> _heldKeys = [];
     private readonly List<(ushort Button, KeyChord Chord)> _configurableMappings = [];
     private ushort _previousButtons;
     private bool _rightMouseHeld;
+    private bool _cursorReturnPending;
+    private long _cursorReturnAt;
+    private NativeMethods.Point _cursorReturnPosition;
     private IntPtr _lastForegroundWindow;
     private bool _lastWindowWasWow;
 
     private readonly KeyChord _l2Chord;
     private readonly KeyChord _r2Chord;
 
-    public ControllerMapper(BridgeConfig config)
+    public ControllerMapper(BridgeConfig config, Action? cursorMoved = null)
     {
         _config = config;
+        _cursorMoved = cursorMoved ?? (() => { });
         _l2Chord = config.ButtonMappings.TryGetValue("L2", out string? l2Key) ? KeyMappingParser.Parse(l2Key) : KeyChord.Disabled;
         _r2Chord = config.ButtonMappings.TryGetValue("R2", out string? r2Key) ? KeyMappingParser.Parse(r2Key) : KeyChord.Disabled;
 
@@ -60,13 +65,14 @@ internal sealed class ControllerMapper
 
     public bool Update(NativeMethods.XInputGamepad gamepad, IntPtr wowWindow)
     {
+        ApplyPendingCursorReturn();
         UpdateLeftStick(gamepad);
         bool cameraActive = UpdateCamera(gamepad);
-        ushort lootConfirmKey = GetLootConfirmKey(wowWindow);
+        ushort actionKey = GetActionKey(wowWindow, out bool lootActive);
         if (Pressed(gamepad.Buttons, NativeMethods.XINPUT_GAMEPAD_A))
-            ActivateFaceButton(wowWindow, NativeMethods.VK_NUMPAD0, lootConfirmKey);
+            ActivateFaceButton(wowWindow, NativeMethods.VK_NUMPAD0, actionKey, lootActive);
         if (Pressed(gamepad.Buttons, NativeMethods.XINPUT_GAMEPAD_B))
-            ActivateFaceButton(wowWindow, NativeMethods.VK_NUMPAD9, lootConfirmKey);
+            ActivateFaceButton(wowWindow, NativeMethods.VK_NUMPAD9, actionKey, lootActive);
         TapOnPress(gamepad.Buttons, NativeMethods.XINPUT_GAMEPAD_X, NativeMethods.VK_NUMPAD_MINUS);
         TapOnPress(gamepad.Buttons, NativeMethods.XINPUT_GAMEPAD_Y, NativeMethods.VK_NUMPAD_PLUS);
         TapOnPress(gamepad.Buttons, NativeMethods.XINPUT_GAMEPAD_RIGHT_SHOULDER, NativeMethods.VK_NUMPAD1);
@@ -208,8 +214,9 @@ internal sealed class ControllerMapper
         }
     }
 
-    private ushort GetLootConfirmKey(IntPtr wowWindow)
+    private ushort GetActionKey(IntPtr wowWindow, out bool lootActive)
     {
+        lootActive = false;
         IntPtr hdc = NativeMethods.GetDC(wowWindow);
         if (hdc == IntPtr.Zero)
             return 0;
@@ -224,9 +231,10 @@ internal sealed class ControllerMapper
             byte g = (byte)((pixel >> 8) & 0xFF);
             byte b = (byte)((pixel >> 16) & 0xFF);
 
-            if (r < 50 && g > 200 && b > 200)
+            lootActive = Math.Max(r, Math.Max(g, b)) > 200;
+            if (r < 50 && g > 20 && b > 20)
                 return NativeMethods.VK_NUMPAD0;
-            if (r > 200 && g < 50 && b > 200)
+            if (r > 20 && g < 50 && b > 20)
                 return NativeMethods.VK_NUMPAD9;
             return 0;
         }
@@ -236,9 +244,16 @@ internal sealed class ControllerMapper
         }
     }
 
-    private void ActivateFaceButton(IntPtr wowWindow, ushort logicalKey, ushort lootConfirmKey)
+    private void ActivateFaceButton(IntPtr wowWindow, ushort logicalKey, ushort actionKey, bool lootActive)
     {
-        if (logicalKey == lootConfirmKey)
+        if (logicalKey != actionKey)
+        {
+            NativeMethods.SendKey(logicalKey, true);
+            NativeMethods.SendKey(logicalKey, false);
+            return;
+        }
+
+        if (lootActive)
         {
             ClickLootAtReticle(wowWindow);
             return;
@@ -265,23 +280,29 @@ internal sealed class ControllerMapper
         if (!NativeMethods.ClientToScreen(wowWindow, ref center))
             return;
 
+        NativeMethods.Point returnCursor = GetCursorReturnPosition(wowWindow, rect);
+
         bool resumeCamera = _rightMouseHeld;
         if (resumeCamera)
             NativeMethods.SendRightMouse(false);
 
         try
         {
+            _cursorMoved();
             if (!NativeMethods.SetCursorPos(center.X, center.Y))
                 return;
+            _cursorMoved();
             if (_config.CursorSettleDelayMilliseconds > 0)
                 Thread.Sleep(_config.CursorSettleDelayMilliseconds);
 
             NativeMethods.SendLeftMouse(true);
             Thread.Sleep(_config.InteractionPressMilliseconds);
             NativeMethods.SendLeftMouse(false);
+            _cursorMoved();
         }
         finally
         {
+            ScheduleCursorReturn(returnCursor);
             if (resumeCamera)
                 NativeMethods.SendRightMouse(true);
         }
@@ -309,6 +330,8 @@ internal sealed class ControllerMapper
         if (!NativeMethods.ClientToScreen(wowWindow, ref center))
             return;
 
+        NativeMethods.Point returnCursor = GetCursorReturnPosition(wowWindow, rect);
+
         bool resumeCamera = _rightMouseHeld;
         if (resumeCamera)
             NativeMethods.SendRightMouse(false);
@@ -317,8 +340,10 @@ internal sealed class ControllerMapper
         {
             // Niemals am aktuellen echten Mauszeiger klicken: Schlaegt das
             // Positionieren fehl, wird die Interaktion komplett verworfen.
+            _cursorMoved();
             if (!NativeMethods.SetCursorPos(center.X, center.Y))
                 return;
+            _cursorMoved();
 
             // Der alte Client muss die neue Cursorposition mindestens einen
             // Inputzyklus lang sehen, bevor TurnOrActionStart ausgewertet wird.
@@ -332,12 +357,51 @@ internal sealed class ControllerMapper
             NativeMethods.SendKey(logicalKey, true);
             Thread.Sleep(_config.InteractionPressMilliseconds);
             NativeMethods.SendKey(logicalKey, false);
+            NativeMethods.SendKey(NativeMethods.VK_F12, true);
+            NativeMethods.SendKey(NativeMethods.VK_F12, false);
+            _cursorMoved();
         }
         finally
         {
+            ScheduleCursorReturn(returnCursor);
             if (resumeCamera)
                 NativeMethods.SendRightMouse(true);
         }
+    }
+
+    private static NativeMethods.Point GetCursorReturnPosition(IntPtr wowWindow, NativeMethods.Rect rect)
+    {
+        var topLeft = new NativeMethods.Point { X = rect.Left, Y = rect.Top };
+        var bottomRight = new NativeMethods.Point { X = rect.Right, Y = rect.Bottom };
+        bool haveClientBounds = NativeMethods.ClientToScreen(wowWindow, ref topLeft) &&
+            NativeMethods.ClientToScreen(wowWindow, ref bottomRight);
+
+        if (haveClientBounds && NativeMethods.GetCursorPos(out NativeMethods.Point current))
+        {
+            const int edgeMargin = 16;
+            if (current.X <= topLeft.X + edgeMargin || current.X >= bottomRight.X - edgeMargin ||
+                current.Y <= topLeft.Y + edgeMargin || current.Y >= bottomRight.Y - edgeMargin)
+                return current;
+        }
+
+        return bottomRight;
+    }
+
+    private void ScheduleCursorReturn(NativeMethods.Point position)
+    {
+        _cursorReturnPosition = position;
+        _cursorReturnAt = Stopwatch.GetTimestamp() + Stopwatch.Frequency / 10;
+        _cursorReturnPending = true;
+    }
+
+    private void ApplyPendingCursorReturn()
+    {
+        if (!_cursorReturnPending || _rightMouseHeld || Stopwatch.GetTimestamp() < _cursorReturnAt)
+            return;
+
+        _cursorReturnPending = false;
+        NativeMethods.SetCursorPos(_cursorReturnPosition.X, _cursorReturnPosition.Y);
+        _cursorMoved();
     }
 
 
