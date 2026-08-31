@@ -689,6 +689,9 @@ frame:RegisterEvent("GOSSIP_CLOSED")
 frame:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
 frame:SetScript("OnEvent", function()
     if event == "PLAYER_ENTERING_WORLD" then
+        if DEFAULT_CHAT_FRAME then
+            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00DinoController: /dino oeffnet das Einstellungsmenue|r")
+        end
         InstallBindings(false)
         -- Den gespeicherten A/B-Schalter bei jedem Login erneut anwenden,
         -- auch wenn sich die Binding-Version nicht geaendert hat.
