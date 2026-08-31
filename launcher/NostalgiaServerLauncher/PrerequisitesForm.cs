@@ -127,11 +127,18 @@ internal sealed class PrerequisitesForm : Form
                 _installerList.Controls.Add(CreateCell($"{installer.DisplayName}\n{installer.Architecture} · Installer {installer.InstallerVersion}", Color.FromArgb(229, 230, 228)), 0, row);
                 _installerList.Controls.Add(CreateCell(installer.Status, installer.IsInstalled ? Color.FromArgb(77, 190, 120) : Color.FromArgb(224, 175, 72)), 1, row);
 
-                var installButton = CreateButton(installer.IsInstalled ? "Bereits installiert" : "Installer starten", Color.FromArgb(150, 101, 43));
-                installButton.Enabled = !installer.IsInstalled;
-                installButton.Tag = installer;
-                installButton.Click += InstallerButtonOnClick;
-                _installerList.Controls.Add(installButton, 2, row);
+                if (installer.DisplayName.Contains("DinoController", StringComparison.OrdinalIgnoreCase))
+                {
+                    _installerList.Controls.Add(CreateCell(installer.IsInstalled ? "installiert" : "fehlt", installer.IsInstalled ? Color.FromArgb(77, 190, 120) : Color.FromArgb(224, 175, 72)), 2, row);
+                }
+                else
+                {
+                    var installButton = CreateButton(installer.IsInstalled ? "Bereits installiert" : "Installer starten", Color.FromArgb(150, 101, 43));
+                    installButton.Enabled = !installer.IsInstalled;
+                    installButton.Tag = installer;
+                    installButton.Click += InstallerButtonOnClick;
+                    _installerList.Controls.Add(installButton, 2, row);
+                }
             }
         }
 
@@ -140,15 +147,42 @@ internal sealed class PrerequisitesForm : Form
 
     private IReadOnlyList<InstallerEntry> DiscoverInstallers()
     {
-        if (!Directory.Exists(_toolsDirectory))
-            return Array.Empty<InstallerEntry>();
+        var installers = new List<InstallerEntry>();
+        if (Directory.Exists(_toolsDirectory))
+        {
+            var files = Directory.EnumerateFiles(_toolsDirectory, "*", SearchOption.TopDirectoryOnly)
+                .Where(path => string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(Path.GetExtension(path), ".msi", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase);
+            
+            foreach (var path in files)
+            {
+                installers.Add(DescribeInstaller(path));
+            }
+        }
 
-        return Directory.EnumerateFiles(_toolsDirectory, "*", SearchOption.TopDirectoryOnly)
-            .Where(path => string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Path.GetExtension(path), ".msi", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
-            .Select(DescribeInstaller)
-            .ToArray();
+        bool hasDino = false;
+        for (int i = 0; i < installers.Count; i++)
+        {
+            if (installers[i].DisplayName.Contains("DinoController", StringComparison.OrdinalIgnoreCase))
+            {
+                installers[i] = installers[i] with { Status = "Installiert", IsInstalled = true };
+                hasDino = true;
+            }
+        }
+
+        if (!hasDino)
+        {
+            installers.Add(new InstallerEntry(
+                Path.Combine(_toolsDirectory, "DinoControllerBridge.exe"),
+                "DinoControllerBridge",
+                "Architektur unbekannt",
+                "unbekannt",
+                "Fehlt",
+                false));
+        }
+
+        return installers;
     }
 
     private static InstallerEntry DescribeInstaller(string path)

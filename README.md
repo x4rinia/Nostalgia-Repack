@@ -42,7 +42,7 @@ Use a backup before importing SQL into an existing realm.
 | --- | --- |
 | World | `nostalgia_ambient_chat.sql`, `nostalgia_ambient_chat_who_factions.sql`, `nostalgia_content_locks.sql`, `nostalgia_instance_sizes.sql`, `nostalgia_transmog_world.sql`, `nostalgia_ascii_german_locales.sql`, `nostalgia_gurubashi_hourly.sql` |
 | Characters | `nostalgia_ahbot_owner_characters.sql`, `nostalgia_transmog_characters.sql` |
-| Login | `nostalgia_realmname.sql` |
+| Login | `nostalgia_realmname.sql`, `nostalgia_admin_account.sql` |
 
 Import `nostalgia_ambient_chat.sql` before `nostalgia_ambient_chat_who_factions.sql`. The second file is safe to run repeatedly and only refreshes its own Horde fake-player entries.
 
