@@ -1,0 +1,65 @@
+<Bindings>
+    <Binding name="DINOCONTROLLER_UI_PREVIOUS" hidden="true">
+        DinoController_UIMove(-1);
+    </Binding>
+    <Binding name="DINOCONTROLLER_UI_NEXT" hidden="true">
+        DinoController_UIMove(1);
+    </Binding>
+    <Binding name="DINOCONTROLLER_UI_UP" hidden="true">
+        DinoController_UIMoveDir("UP");
+    </Binding>
+    <Binding name="DINOCONTROLLER_UI_DOWN" hidden="true">
+        DinoController_UIMoveDir("DOWN");
+    </Binding>
+    <Binding name="DINOCONTROLLER_UI_LEFT" hidden="true">
+        DinoController_UIMoveDir("LEFT");
+    </Binding>
+    <Binding name="DINOCONTROLLER_UI_RIGHT" hidden="true">
+        DinoController_UIMoveDir("RIGHT");
+    </Binding>
+    <Binding name="DINOCONTROLLER_UI_ACTIVATE" hidden="true">
+        DinoController_UIActivate();
+    </Binding>
+    <Binding name="DINOCONTROLLER_MENU_CYCLE" hidden="true">
+        DinoController_ToggleMenuWindows();
+    </Binding>
+    <Binding name="DINOCONTROLLER_UI_CANCEL" hidden="true">
+        DinoController_UICancel();
+    </Binding>
+    <Binding name="DINOCONTROLLER_X_ACTION" hidden="true">
+        DinoController_ExecuteXAction();
+    </Binding>
+    <Binding name="DINOCONTROLLER_Y_ACTION" hidden="true">
+        DinoController_ExecuteYAction();
+    </Binding>
+    <Binding name="DINOCONTROLLER_TARGET_GROUP_NEXT" hidden="true">
+        DinoController_TargetGroup(1);
+    </Binding>
+    <Binding name="DINOCONTROLLER_TARGET_GROUP_PREVIOUS" hidden="true">
+        DinoController_TargetGroup(-1);
+    </Binding>
+    <Binding name="DINOHUD_ACTION1" hidden="true">
+        DinoHUD_Action1();
+    </Binding>
+    <Binding name="DINOHUD_ACTION2" hidden="true">
+        DinoHUD_Action2();
+    </Binding>
+    <Binding name="DINOHUD_ACTION3" hidden="true">
+        DinoHUD_Action3();
+    </Binding>
+    <Binding name="DINOHUD_ACTION4" hidden="true">
+        DinoHUD_Action4();
+    </Binding>
+    <Binding name="DINOHUD_CLASSMODE" hidden="true">
+        DinoHUD_CycleClassStance();
+    </Binding>
+    <Binding name="DINOHUD_MOUNT" hidden="true">
+        DinoHUD_UseMount();
+    </Binding>
+    <Binding name="DINOHUD_L2_MODIFIER" hidden="true" runOnUp="true">
+        DinoHUD_SetModifier("L2", keystate == "down");
+    </Binding>
+    <Binding name="DINOHUD_R2_MODIFIER" hidden="true" runOnUp="true">
+        DinoHUD_SetModifier("R2", keystate == "down");
+    </Binding>
+</Bindings>

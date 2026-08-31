@@ -1,0 +1,13 @@
+## Interface: 11200
+## Title: DinoController
+## Notes: Kleine WoW-1.12.1-Ergaenzung fuer den DinoController-Prototyp
+## Author: Xarinia
+## Version: 0.3.5
+## SavedVariables: DinoControllerDB
+## SavedVariablesPerCharacter: DinoControllerHUDDB
+
+BridgeMappings.lua
+DinoController.lua
+DinoControllerUI.lua
+DinoControllerHUD.lua
+Bindings.xml

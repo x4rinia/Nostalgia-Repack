@@ -1,6 +1,8 @@
 # Never publish build products, runtime data or a game client.
 /build/
 /bin/
+**/bin/
+**/obj/
 /Data/
 /client/
 /testclient/

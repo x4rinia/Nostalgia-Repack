@@ -19,6 +19,7 @@ internal sealed class LauncherLayout
         WebExecutable = Path.Combine(ApacheDirectory, "bin", "httpd.exe");
         WebConfiguration = Path.Combine(ApacheDirectory, "conf", "httpd.conf");
         ToolsDirectory = Path.Combine(BaseDirectory, "tools");
+        ControllerBridgeExecutable = Path.Combine(ToolsDirectory, "DinoControllerBridge.exe");
         ClientDirectory = Path.Combine(BaseDirectory, "client");
         WowExecutable = Path.Combine(ClientDirectory, "WoW.exe");
         AddOnsDirectory = Path.Combine(ClientDirectory, "Interface", "AddOns");
@@ -39,6 +40,7 @@ internal sealed class LauncherLayout
     public string WebExecutable { get; }
     public string WebConfiguration { get; }
     public string ToolsDirectory { get; }
+    public string ControllerBridgeExecutable { get; }
     public string ClientDirectory { get; }
     public string WowExecutable { get; }
     public string AddOnsDirectory { get; }

@@ -25,6 +25,7 @@ internal sealed class MainForm : Form
     private readonly Label _activityLabel;
     private bool _allowClose;
     private bool _closeInProgress;
+    private HiddenChildProcess? _controllerBridge;
 
     public MainForm()
     {
@@ -385,6 +386,7 @@ internal sealed class MainForm : Form
 
         try
         {
+            StartControllerBridgeIfAvailable();
             Process.Start(new ProcessStartInfo
             {
                 FileName = _layout.WowExecutable,
@@ -398,6 +400,50 @@ internal sealed class MainForm : Form
             QueueLog($"[{DateTime.Now:HH:mm:ss}] [Spiel] WoW konnte nicht gestartet werden: {exception.Message}");
             MessageBox.Show(this, $"WoW konnte nicht gestartet werden.\n\n{exception.Message}", Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    private void StartControllerBridgeIfAvailable()
+    {
+        if (!File.Exists(_layout.ControllerBridgeExecutable))
+        {
+            QueueLog($"[{DateTime.Now:HH:mm:ss}] [Controller] Bruecke nicht installiert; WoW startet ohne Controller-Mapping.");
+            return;
+        }
+
+        if (_controllerBridge != null && !_controllerBridge.HasExited)
+        {
+            QueueLog($"[{DateTime.Now:HH:mm:ss}] [Controller] DinoControllerBridge läuft bereits im Hintergrund.");
+            return;
+        }
+
+        if (Process.GetProcessesByName("DinoControllerBridge").Length > 0)
+        {
+            QueueLog($"[{DateTime.Now:HH:mm:ss}] [Controller] DinoControllerBridge läuft bereits im Hintergrund.");
+            return;
+        }
+
+        try
+        {
+            _controllerBridge = HiddenChildProcess.Start(_layout.ControllerBridgeExecutable, string.Empty, _layout.ToolsDirectory, createProcessGroup: false);
+            _controllerBridge.Exited += (exitCode) =>
+            {
+                QueueLog($"[{DateTime.Now:HH:mm:ss}] [Controller] DinoControllerBridge wurde beendet.");
+            };
+            QueueLog($"[{DateTime.Now:HH:mm:ss}] [Controller] DinoControllerBridge wurde im Hintergrund gestartet.");
+        }
+        catch (Exception exception)
+        {
+            QueueLog($"[{DateTime.Now:HH:mm:ss}] [Controller] Bruecke konnte nicht gestartet werden: {exception.Message}");
+        }
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        if (_controllerBridge != null && !_controllerBridge.HasExited)
+        {
+            try { _controllerBridge.Kill(); } catch { }
+        }
+        base.OnFormClosing(e);
     }
 
     private void OpenAddOns()
