@@ -53,13 +53,8 @@ function DinoHUD_UpdateLabels()
     end
 
     if hudFrame and hudFrame.xHint then
-        local actionType = DinoControllerDB and DinoControllerDB.xActionType or "ClassMode"
-        if actionType == "Action" then
-            local actSlot = 13
-            hudFrame.xHint:SetText("|cffaaaaaaSlot " .. actSlot .. "|r")
-        else
-            hudFrame.xHint:SetText("|cffaaaaaaStance|r")
-        end
+        local xActionButton = (DinoControllerDB and DinoControllerDB.swapXY == 1) and "Y" or "X"
+        hudFrame.xHint:SetText("|cffaaaaaa" .. xActionButton .. "|r")
     end
 end
 
@@ -326,6 +321,57 @@ end
 -- Einzelnen HUD-Button erstellen
 -- =========================================================================
 
+local function DinoHUD_GetActionSlotDMMInfo(actionSlot)
+    if not actionSlot then return nil end
+    local dmmIndex = nil
+    if DinoMacroManager_GetSlotFromAction then
+        dmmIndex = DinoMacroManager_GetSlotFromAction(actionSlot)
+    end
+    if not dmmIndex and type(GetActionText) == "function" then
+        local text = GetActionText(actionSlot)
+        if text then
+            local _, _, num = string.find(text, "^DMM Slot (%d+)$")
+            if num then dmmIndex = tonumber(num) end
+        end
+    end
+    if not dmmIndex then return nil end
+
+    local spell, bookIndex
+    if DinoMacroManager_GetSlotCurrentSpell then
+        spell, bookIndex = DinoMacroManager_GetSlotCurrentSpell(dmmIndex)
+    end
+
+    local start, duration, enable = 0, 0, 0
+    if DinoMacroManager_GetSlotCooldown then
+        start, duration, enable = DinoMacroManager_GetSlotCooldown(dmmIndex)
+    elseif bookIndex and spell then
+        start, duration, enable = GetSpellCooldown(bookIndex, spell.bookType or "spell")
+    end
+
+    local isUsable, notEnoughMana = true, false
+    if DinoMacroManager_IsSlotUsable then
+        isUsable, notEnoughMana = DinoMacroManager_IsSlotUsable(dmmIndex)
+    end
+
+    local inRange = nil
+    if DinoMacroManager_IsSlotInRange then
+        inRange = DinoMacroManager_IsSlotInRange(dmmIndex, "target")
+    end
+
+    return {
+        index = dmmIndex,
+        spell = spell,
+        bookIndex = bookIndex,
+        texture = spell and spell.icon,
+        cooldownStart = start,
+        cooldownDuration = duration,
+        cooldownEnable = enable,
+        isUsable = isUsable,
+        notEnoughMana = notEnoughMana,
+        inRange = inRange
+    }
+end
+
 local function CreateHUDButton(parent, slotInfo, index)
     local btnName = "DinoHUDButton" .. slotInfo.id
     local size = HUD_BUTTON_SIZE
@@ -406,21 +452,30 @@ local function CreateHUDButton(parent, slotInfo, index)
                 local actSlot = 13
                 local hasAction = HasAction(actSlot)
                 if hasAction then
-                    local texture = GetActionTexture(actSlot)
+                    local dmmInfo = DinoHUD_GetActionSlotDMMInfo(actSlot)
+                    local texture = (dmmInfo and dmmInfo.texture) or GetActionTexture(actSlot)
                     if self.icon then
                         self.icon:SetTexture(texture)
                         self.icon:Show()
                     end
 
-                    local isUsable, notEnoughMana = IsUsableAction(actSlot)
-                    if IsConsumableAction(actSlot) then
-                        local actionCount = GetActionCount(actSlot)
-                        if actionCount and actionCount == 0 then
-                            isUsable = false
+                    local isUsable, notEnoughMana
+                    if dmmInfo then
+                        isUsable, notEnoughMana = dmmInfo.isUsable, dmmInfo.notEnoughMana
+                    else
+                        isUsable, notEnoughMana = IsUsableAction(actSlot)
+                        if IsConsumableAction(actSlot) then
+                            local actionCount = GetActionCount(actSlot)
+                            if actionCount and actionCount == 0 then
+                                isUsable = false
+                            end
                         end
                     end
 
-                    if isUsable then
+                    local inRange = dmmInfo and dmmInfo.inRange or IsActionInRange(actSlot)
+                    if inRange == 0 then
+                        if self.icon then self.icon:SetVertexColor(0.8, 0.1, 0.1) end
+                    elseif isUsable then
                         if self.icon then self.icon:SetVertexColor(1.0, 1.0, 1.0) end
                     elseif notEnoughMana then
                         if self.icon then self.icon:SetVertexColor(0.3, 0.3, 0.8) end
@@ -430,7 +485,12 @@ local function CreateHUDButton(parent, slotInfo, index)
                     self:SetAlpha(1.0)
 
                     if self.cooldown then
-                        local start, duration, enable = GetActionCooldown(actSlot)
+                        local start, duration, enable
+                        if dmmInfo then
+                            start, duration, enable = dmmInfo.cooldownStart, dmmInfo.cooldownDuration, dmmInfo.cooldownEnable
+                        else
+                            start, duration, enable = GetActionCooldown(actSlot)
+                        end
                         if start and start > 0 and duration and duration > 0 then
                             CooldownFrame_SetTimer(self.cooldown, start, duration, enable)
                         else
@@ -513,26 +573,35 @@ local function CreateHUDButton(parent, slotInfo, index)
 
         local hasAction = HasAction(slot)
         if hasAction then
-            local texture = GetActionTexture(slot)
+            local dmmInfo = DinoHUD_GetActionSlotDMMInfo(slot)
+            local texture = (dmmInfo and dmmInfo.texture) or GetActionTexture(slot)
             if self.icon then
                 self.icon:SetTexture(texture)
                 self.icon:Show()
             end
 
-            local isUsable, notEnoughMana = IsUsableAction(slot)
-            if self.dinoSlotInfo.id == 6 then
-                isUsable = true
-                notEnoughMana = false
-            end
+            local isUsable, notEnoughMana
+            if dmmInfo then
+                isUsable, notEnoughMana = dmmInfo.isUsable, dmmInfo.notEnoughMana
+            else
+                isUsable, notEnoughMana = IsUsableAction(slot)
+                if self.dinoSlotInfo.id == 6 then
+                    isUsable = true
+                    notEnoughMana = false
+                end
 
-            if IsConsumableAction(slot) then
-                local actionCount = GetActionCount(slot)
-                if actionCount and actionCount == 0 then
-                    isUsable = false
+                if IsConsumableAction(slot) then
+                    local actionCount = GetActionCount(slot)
+                    if actionCount and actionCount == 0 then
+                        isUsable = false
+                    end
                 end
             end
 
-            if isUsable then
+            local inRange = dmmInfo and dmmInfo.inRange or IsActionInRange(slot)
+            if inRange == 0 then
+                if self.icon then self.icon:SetVertexColor(0.8, 0.1, 0.1) end
+            elseif isUsable then
                 if self.icon then self.icon:SetVertexColor(1.0, 1.0, 1.0) end
             elseif notEnoughMana then
                 if self.icon then self.icon:SetVertexColor(0.3, 0.3, 0.8) end
@@ -559,16 +628,17 @@ local function CreateHUDButton(parent, slotInfo, index)
             end
 
             if self.cooldown then
-                local start, duration, enable = GetActionCooldown(slot)
+                local start, duration, enable
+                if dmmInfo then
+                    start, duration, enable = dmmInfo.cooldownStart, dmmInfo.cooldownDuration, dmmInfo.cooldownEnable
+                else
+                    start, duration, enable = GetActionCooldown(slot)
+                end
                 if start and start > 0 and duration and duration > 0 then
                     CooldownFrame_SetTimer(self.cooldown, start, duration, enable)
                 else
                     CooldownFrame_SetTimer(self.cooldown, 0, 0, 0)
                 end
-            end
-
-            if IsActionInRange(slot) == 0 then
-                if self.icon then self.icon:SetVertexColor(0.8, 0.1, 0.1) end
             end
 
             self:SetAlpha(1.0)
@@ -686,6 +756,35 @@ local function CreateHUDButton(parent, slotInfo, index)
     return btn
 end
 
+function DinoHUD_ApplyLayout()
+    if not hudFrame or not hudButtons[2] or not hudButtons[4] or not hudButtons[5] or not hudButtons[6] then return end
+
+    local btn2 = hudButtons[2]
+    local btn4 = hudButtons[4]
+    local btn5 = hudButtons[5]
+    local btn6 = hudButtons[6]
+    local layout = (DinoControllerDB and DinoControllerDB.hudLayout) or "Unten"
+    local bottomLayoutHeight = HUD_SPACING + 2 + HUD_BUTTON_SIZE * 3 + HUD_SPACING * 2 + 2 + HUD_SPACING + HUD_BUTTON_SIZE + HUD_SPACING + 14 + 4
+
+    btn5:ClearAllPoints()
+    btn6:ClearAllPoints()
+
+    if layout == "Seitlich" then
+        btn5:SetPoint("RIGHT", btn4, "LEFT", -(HUD_SPACING * 2), 0)
+        btn6:SetPoint("LEFT", btn2, "RIGHT", HUD_SPACING * 2, 0)
+        hudFrame.separator:Hide()
+        hudFrame:SetWidth(HUD_BUTTON_SIZE * 4 + HUD_SPACING * 6 + 8)
+        hudFrame:SetHeight(HUD_SPACING + 2 + HUD_BUTTON_SIZE * 3 + HUD_SPACING * 3 + 18)
+    else
+        local xOffset = HUD_BUTTON_SIZE + HUD_SPACING
+        btn5:SetPoint("TOP", hudFrame.separator, "BOTTOM", -xOffset, -(HUD_SPACING + 1))
+        btn6:SetPoint("TOP", hudFrame.separator, "BOTTOM", xOffset, -(HUD_SPACING + 1))
+        hudFrame.separator:Show()
+        hudFrame:SetWidth(HUD_BUTTON_SIZE * 3 + HUD_SPACING * 4 + HUD_SPACING * 2 + 8)
+        hudFrame:SetHeight(bottomLayoutHeight)
+    end
+end
+
 -- =========================================================================
 -- Haupt-HUD-Frame erstellen
 -- =========================================================================
@@ -747,47 +846,29 @@ local function CreateHUDFrame()
     separator:SetHeight(1)
     separator:SetWidth(HUD_BUTTON_SIZE * 3 + HUD_SPACING * 4)
     separator:SetPoint("TOP", btn3, "BOTTOM", 0, -(HUD_SPACING + 1))
+    hudFrame.separator = separator
 
-    -- Bottom row: [ X ] [ A ] [ R3 ]
-    local xOffset = HUD_BUTTON_SIZE + HUD_SPACING
-
+    -- Bottom row: [ X/Y ] [ empty ] [ B3 ]
     -- X = ClassMode or Custom 13
     local btn5 = CreateHUDButton(hudFrame, HUD_SLOTS[5], 5)
-    btn5:SetPoint("TOP", separator, "BOTTOM", -xOffset, -(HUD_SPACING + 1))
     hudButtons[5] = btn5
 
-    -- A = Confirm / Action
-    local btn7 = CreateHUDButton(hudFrame, HUD_SLOTS[7], 7)
-    btn7:SetPoint("TOP", separator, "BOTTOM", 0, -(HUD_SPACING + 1))
-    if btn7.bg then btn7.bg:SetVertexColor(0.15, 0.75, 0.3, 0.85) end
-    if btn7.border then btn7.border:SetVertexColor(0.3, 1.0, 0.45, 0.9) end
-    hudButtons[7] = btn7
-
-    -- R3 = Mount (Slot 14)
+    -- B3 = Mount (ActionSlot 14; internal behavior unchanged)
     local btn6 = CreateHUDButton(hudFrame, HUD_SLOTS[6], 6)
-    btn6:SetPoint("TOP", separator, "BOTTOM", xOffset, -(HUD_SPACING + 1))
     hudButtons[6] = btn6
 
     -- Hints
-    local aHint = hudFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    aHint:SetPoint("TOP", btn7, "BOTTOM", 0, -1)
-    aHint:SetText("|cff55ff77Aktion|r")
-    hudFrame.aHint = aHint
-
     local xHint = hudFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     xHint:SetPoint("TOP", btn5, "BOTTOM", 0, -1)
-    xHint:SetText("|cffaaaaaaStance|r")
+    xHint:SetText("|cffaaaaaaX|r")
     hudFrame.xHint = xHint
 
     local r3Hint = hudFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     r3Hint:SetPoint("TOP", btn6, "BOTTOM", 0, -1)
-    r3Hint:SetText("|cffaaaaaaSlot 14|r")
+    r3Hint:SetText("|cffaaaaaaB3|r")
     hudFrame.r3Hint = r3Hint
 
-    local totalHeight = HUD_SPACING + 2 + HUD_BUTTON_SIZE * 3 + HUD_SPACING * 2 + 2 + HUD_SPACING + HUD_BUTTON_SIZE + HUD_SPACING + 14 + 4
-    local totalWidth = HUD_BUTTON_SIZE * 3 + HUD_SPACING * 4 + HUD_SPACING * 2 + 8
-    hudFrame:SetHeight(totalHeight)
-    hudFrame:SetWidth(totalWidth)
+    DinoHUD_ApplyLayout()
 
     local lockOverlay = hudFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     lockOverlay:SetPoint("BOTTOM", hudFrame, "BOTTOM", 0, 2)

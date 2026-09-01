@@ -6,13 +6,16 @@ DinoControllerDB = DinoControllerDB or {}
 DinoControllerCharacterDB = DinoControllerCharacterDB or {}
 DinoControllerBridgeConfig = DinoControllerBridgeConfig or { Enabled = 1, ButtonMappings = {} }
 
-local BINDING_VERSION = 11
+local BINDING_VERSION = 15
 local CAMERA_PITCH = 20
+local RETICLE_ALPHA_LEVELS = { 0.30, 0.50, 0.75 }
 local autoLootCVarAvailable = nil
 local ambiguousQuestList = nil
 local ambiguityClearAt = nil
 local pendingQuestWatchSnapshot = nil
 local pendingQuestWatchUntil = nil
+local nextMapQuestWindow = "map"
+local pendingMapQuestWindow = nil
 
 local lootStatePixel = CreateFrame("Frame", "DinoLootStatePixel", UIParent)
 lootStatePixel:SetWidth(4)
@@ -24,13 +27,64 @@ lootStatePixel.tex:SetAllPoints()
 lootStatePixel.tex:SetTexture(0, 0.125, 0.125, 1)
 lootStatePixel:Show()
 local uiModeActive = nil
+local uiModeContext = nil
+
+local function WorldMapIsVisible()
+    return WorldMapFrame and WorldMapFrame:IsVisible()
+end
+
+local function NPCInteractionAllowsCursor()
+    if not uiModeActive then return nil end
+    return uiModeContext == "quest" or
+        uiModeContext == "gossip" or
+        uiModeContext == "trainer" or
+        uiModeContext == "bank" or
+        uiModeContext == "auction" or
+        uiModeContext == "mail" or
+        uiModeContext == "stable"
+end
+
+local function UpdateControllerStatePixel()
+    if WorldMapFrame and WorldMapFrame:IsVisible() then
+        if lootStatePixel:GetParent() ~= WorldMapFrame then
+            lootStatePixel:SetParent(WorldMapFrame)
+            lootStatePixel:SetFrameStrata("TOOLTIP")
+            lootStatePixel:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 50)
+            lootStatePixel:ClearAllPoints()
+            lootStatePixel:SetPoint("TOPLEFT", WorldMapFrame, "TOPLEFT", 0, 0)
+        end
+    else
+        if lootStatePixel:GetParent() ~= UIParent then
+            lootStatePixel:SetParent(UIParent)
+            lootStatePixel:SetFrameStrata("TOOLTIP")
+            lootStatePixel:ClearAllPoints()
+            lootStatePixel:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+        end
+    end
+
+    local lootActive = LootFrame and LootFrame:IsVisible() and
+        DinoController_IsUIModeActive and DinoController_IsUIModeActive()
+    local cursorState = 0.125
+    if lootActive then
+        cursorState = 1
+    elseif NPCInteractionAllowsCursor() then
+        cursorState = 0.5
+    end
+
+    if DinoControllerDB.swapAB == 1 then
+        lootStatePixel.tex:SetTexture(lootActive and 1 or 0.125, 0, cursorState, 1)
+    else
+        lootStatePixel.tex:SetTexture(0, lootActive and 1 or 0.125, cursorState, 1)
+    end
+    lootStatePixel:Show()
+end
 
 local controllerBindings = {
     { "NUMPAD8", "MOVEFORWARD" },
     { "NUMPAD2", "MOVEBACKWARD" },
     { "NUMPAD4", "STRAFELEFT" },
     { "NUMPAD6", "STRAFERIGHT" },
-    { "NUMPAD5", "TOGGLEWORLDMAP" },
+    { "NUMPAD5", "DINOCONTROLLER_MAP_QUEST_TOGGLE" },
     { "NUMPAD7", "TOGGLEAUTORUN" },
     { "F8", "DINOCONTROLLER_MENU_CYCLE" },
     { "F11", "DINOCONTROLLER_UI_ACTIVATE" },
@@ -40,6 +94,9 @@ local controllerBindings = {
 local function EnsureDefaults()
     if DinoControllerDB.controllerEnabled == nil then DinoControllerDB.controllerEnabled = 1 end
     if DinoControllerDB.showReticle == nil then DinoControllerDB.showReticle = 1 end
+    if DinoControllerDB.reticleOpacityLevel ~= 1 and DinoControllerDB.reticleOpacityLevel ~= 2 and DinoControllerDB.reticleOpacityLevel ~= 3 then
+        DinoControllerDB.reticleOpacityLevel = 3
+    end
     if DinoControllerDB.uiEnabled == nil then DinoControllerDB.uiEnabled = 1 end
     if DinoControllerDB.autoQuest == nil then DinoControllerDB.autoQuest = 1 end
     if DinoControllerDB.autoLoot == nil then DinoControllerDB.autoLoot = 1 end
@@ -50,7 +107,9 @@ local function EnsureDefaults()
     if DinoControllerDB.targetMode ~= "healer" then DinoControllerDB.targetMode = "dps" end
     if DinoControllerDB.autoTrackQuest == nil then DinoControllerDB.autoTrackQuest = 1 end
     if DinoControllerDB.swapMenuButtons == nil then DinoControllerDB.swapMenuButtons = 0 end
+    if DinoControllerDB.secondaryWindows == nil then DinoControllerDB.secondaryWindows = 1 end
     if DinoControllerDB.dpadLayout == nil then DinoControllerDB.dpadLayout = "Standard" end
+    if DinoControllerDB.hudLayout == nil then DinoControllerDB.hudLayout = "Unten" end
     if DinoControllerCharacterDB.primaryAction == nil then DinoControllerCharacterDB.primaryAction = "Melee" end
 end
 EnsureDefaults()
@@ -141,6 +200,7 @@ function DinoController_GetPrimaryActionInfo(mode)
 end
 
 function DinoController_ExecutePrimaryAction(keyState)
+    if WorldMapIsVisible() then return end
     if keyState ~= "down" then
         if TurnOrActionStop then TurnOrActionStop() end
         return
@@ -181,12 +241,31 @@ function DinoController_NormalizeBindingKey(key)
 end
 
 function DinoController_ToggleMenuWindows()
-    ToggleCharacter("PaperDollFrame")
-    ToggleBackpack()
-    local i
-    for i = 1, NUM_BAG_SLOTS do
-        ToggleBag(i)
+    if TalentFrame and TalentFrame:IsVisible() then
+        CloseAllBags()
+        if HideUIPanel then
+            HideUIPanel(TalentFrame)
+        else
+            TalentFrame:Hide()
+        end
+        return
     end
+
+    local characterWasVisible = CharacterFrame and CharacterFrame:IsVisible()
+    if characterWasVisible then
+        CloseAllBags()
+        ToggleCharacter("PaperDollFrame")
+        if DinoControllerDB.secondaryWindows == 1 and ToggleTalentFrame then
+            ToggleTalentFrame()
+            if TalentFrame and TalentFrame:IsVisible() and DinoController_RequestTalentFocus then
+                DinoController_RequestTalentFocus()
+            end
+        end
+        return
+    end
+
+    ToggleCharacter("PaperDollFrame")
+    OpenAllBags(1)
 end
 
 local function SetActionBinding(key, action)
@@ -267,6 +346,11 @@ function DinoController_ApplyTargetMode(save)
 end
 
 function DinoController_ApplyButtonLayout(save)
+    -- Im UI-Modus sind D-Pad, Confirm und Cancel temporaer an UI-Funktionen gebunden.
+    -- Ein Aufruf durch Events (z. B. UNIT_INVENTORY_CHANGED nach Item-Kauf) darf
+    -- die aktiven UI-Bindings keinesfalls mit Welt-Aktionen ueberschreiben.
+    if uiModeActive then return end
+
     local function SetPrimaryActionBinding(key)
         local selected = DinoControllerCharacterDB.primaryAction or "Melee"
         local info = primaryActionInfo[selected]
@@ -298,24 +382,19 @@ function DinoController_ApplyButtonLayout(save)
 
     if DinoControllerDB.swapMenuButtons == 1 then
         SetActionBinding("NUMPAD5", "DINOCONTROLLER_MENU_CYCLE")
-        SetActionBinding("F8", "TOGGLEWORLDMAP")
+        SetActionBinding("F8", "DINOCONTROLLER_MAP_QUEST_TOGGLE")
     else
-        SetActionBinding("NUMPAD5", "TOGGLEWORLDMAP")
+        SetActionBinding("NUMPAD5", "DINOCONTROLLER_MAP_QUEST_TOGGLE")
         SetActionBinding("F8", "DINOCONTROLLER_MENU_CYCLE")
     end
 
-    local lootActive = LootFrame and LootFrame:IsVisible() and DinoController_IsUIModeActive and DinoController_IsUIModeActive()
-    if DinoControllerDB.swapAB == 1 then
-        lootStatePixel.tex:SetTexture(lootActive and 1 or 0.125, 0, lootActive and 1 or 0.125, 1)
-    else
-        lootStatePixel.tex:SetTexture(0, lootActive and 1 or 0.125, lootActive and 1 or 0.125, 1)
-    end
-    lootStatePixel:Show()
+    UpdateControllerStatePixel()
 
     if save then SaveBindings(GetCurrentBindingSet()) end
 end
 
 function DinoController_ExecuteXAction()
+    if WorldMapIsVisible() then return end
     local actionType = DinoControllerDB.xActionType
     if actionType == "Action" then
         local slot = 13
@@ -333,10 +412,12 @@ function DinoController_ExecuteXAction()
 end
 
 function DinoController_ExecuteYAction()
+    if WorldMapIsVisible() then return end
     TargetUnit("player")
 end
 
 function DinoController_BotAttack()
+    if WorldMapIsVisible() then return end
     if DinoController_IsUIModeActive and DinoController_IsUIModeActive() then return end
     local partyCount = GetNumPartyMembers and GetNumPartyMembers() or 0
     local raidCount = GetNumRaidMembers and GetNumRaidMembers() or 0
@@ -351,7 +432,7 @@ function DinoController_BotAttack()
     end
 end
 
-local function ApplyCamera()
+local function ApplyCamera(forceMaximumDistance)
     SafeSetCVar("cameraDistanceMaxFactor", "2")
     SafeSetCVar("cameraYawMoveSpeed", "180")
     SafeSetCVar("cameraPitchMoveSpeed", "90")
@@ -360,12 +441,34 @@ local function ApplyCamera()
     SafeSetCVar("cameraTerrainTilt", "0")
     SafeSetCVar("cameraBobbing", "0")
     SafeSetCVar("cameraPitch", tostring(CAMERA_PITCH))
-    CameraZoomOut(50)
+    -- Der Client speichert die aktuelle Distanz charakterbezogen in
+    -- camera-settings.txt. Beim Login darf dieser Wert nicht ueberschrieben
+    -- werden; nur /dino camera zoomt weiterhin bewusst auf das Maximum.
+    if forceMaximumDistance then
+        CameraZoomOut(50)
+    end
 end
 
 local function InstallBindings(force)
     if not force and DinoControllerDB.bindingVersion == BINDING_VERSION then
         return
+    end
+
+    -- Die kurzzeitig verwendeten Pfeiltasten-Kamerabindings wieder auf die
+    -- Vanilla-Belegung setzen. Fremde Benutzerbelegungen bleiben erhalten.
+    local obsoleteCameraBindings = {
+        { "LEFT", "MOVEVIEWLEFT", "DINOCONTROLLER_CAMERA_LEFT", "TURNLEFT" },
+        { "RIGHT", "MOVEVIEWRIGHT", "DINOCONTROLLER_CAMERA_RIGHT", "TURNRIGHT" },
+        { "UP", "MOVEVIEWUP", "DINOCONTROLLER_CAMERA_UP", "MOVEFORWARD" },
+        { "DOWN", "MOVEVIEWDOWN", "DINOCONTROLLER_CAMERA_DOWN", "MOVEBACKWARD" }
+    }
+    local obsoleteIndex
+    for obsoleteIndex = 1, table.getn(obsoleteCameraBindings) do
+        local binding = obsoleteCameraBindings[obsoleteIndex]
+        local currentAction = GetBindingAction(binding[1])
+        if currentAction == binding[2] or currentAction == binding[3] then
+            SetBinding(binding[1], binding[4])
+        end
     end
 
     local index
@@ -394,29 +497,133 @@ reticle:SetFrameStrata("TOOLTIP")
 
 local horizontal = reticle:CreateTexture(nil, "OVERLAY")
 horizontal:SetTexture("Interface\\Buttons\\WHITE8x8")
-horizontal:SetVertexColor(0.55, 0.86, 1.0, 0.75)
+horizontal:SetVertexColor(0.55, 0.86, 1.0, 1.0)
 horizontal:SetWidth(14)
 horizontal:SetHeight(2)
 horizontal:SetPoint("CENTER", reticle, "CENTER", 0, 0)
 
 local vertical = reticle:CreateTexture(nil, "OVERLAY")
 vertical:SetTexture("Interface\\Buttons\\WHITE8x8")
-vertical:SetVertexColor(0.55, 0.86, 1.0, 0.75)
+vertical:SetVertexColor(0.55, 0.86, 1.0, 1.0)
 vertical:SetWidth(2)
 vertical:SetHeight(14)
 vertical:SetPoint("CENTER", reticle, "CENTER", 0, 0)
 
 local function UpdateReticle()
-    if DinoControllerDB.controllerEnabled == 1 and DinoControllerDB.showReticle == 1 and not uiModeActive then
+    local opacityLevel = DinoControllerDB.reticleOpacityLevel or 3
+    reticle:SetAlpha(RETICLE_ALPHA_LEVELS[opacityLevel] or RETICLE_ALPHA_LEVELS[3])
+    if DinoControllerDB.controllerEnabled == 1 and DinoControllerDB.showReticle == 1 and
+       (not uiModeActive or uiModeContext == "merchant") then
         reticle:Show()
     else
         reticle:Hide()
     end
 end
 
-function DinoController_SetUIMode(active)
+function DinoController_SetUIMode(active, context)
     uiModeActive = active
+    uiModeContext = active and context or nil
     UpdateReticle()
+end
+
+local function CloseWorldMap()
+    if not WorldMapIsVisible() then return end
+    if HideUIPanel then
+        HideUIPanel(WorldMapFrame)
+    else
+        ToggleWorldMap()
+    end
+    if WorldMapIsVisible() and WorldMapFrame.Hide then
+        WorldMapFrame:Hide()
+    end
+end
+
+local function OpenAndFocusQuestLog()
+    if not QuestLogFrame or not QuestLogFrame:IsVisible() then
+        ToggleQuestLog()
+    end
+    if DinoController_RequestQuestLogFocus then
+        DinoController_RequestQuestLogFocus()
+    end
+end
+
+function DinoController_ToggleMapQuest()
+    if DinoControllerDB.secondaryWindows ~= 1 then
+        pendingMapQuestWindow = nil
+        nextMapQuestWindow = "map"
+        if WorldMapIsVisible() then
+            CloseWorldMap()
+        else
+            ToggleWorldMap()
+            if DinoController_RequestWorldMapFocus then
+                DinoController_RequestWorldMapFocus()
+            end
+        end
+        return
+    end
+
+    if nextMapQuestWindow == "map" then
+        pendingMapQuestWindow = nil
+        if QuestLogFrame and QuestLogFrame:IsVisible() then
+            ToggleQuestLog()
+        end
+        if not WorldMapIsVisible() then
+            ToggleWorldMap()
+        end
+        if DinoController_RequestWorldMapFocus then
+            DinoController_RequestWorldMapFocus()
+        end
+        nextMapQuestWindow = "questlog"
+    else
+        nextMapQuestWindow = "map"
+        if WorldMapIsVisible() then
+            CloseWorldMap()
+            pendingMapQuestWindow = "questlog"
+        else
+            OpenAndFocusQuestLog()
+        end
+    end
+end
+
+-- WorldMapFrame faengt in Vanilla alle Tastendruecke selbst ab und leitet
+-- standardmaessig nur TOGGLEWORLDMAP und SCREENSHOT weiter. Dadurch erreicht
+-- unser eigenes Karten-/Questlog-Binding den normalen Binding-Pfad nicht,
+-- solange die Karte offen ist. Die bestehenden Controller-UI-Bindings werden
+-- hier gezielt an denselben RunBinding-Pfad weitergereicht.
+local originalWorldMapOnKeyDown = WorldMapFrame and WorldMapFrame:GetScript("OnKeyDown")
+if WorldMapFrame then
+    local worldMapControllerActions = {
+        "DINOCONTROLLER_MAP_QUEST_TOGGLE",
+        "DINOCONTROLLER_UI_PREVIOUS",
+        "DINOCONTROLLER_UI_NEXT",
+        "DINOCONTROLLER_UI_UP",
+        "DINOCONTROLLER_UI_DOWN",
+        "DINOCONTROLLER_UI_LEFT",
+        "DINOCONTROLLER_UI_RIGHT",
+        "DINOCONTROLLER_UI_ACTIVATE",
+        "DINOCONTROLLER_UI_CANCEL"
+    }
+
+    WorldMapFrame:SetScript("OnKeyDown", function()
+        local keyPressed = arg1
+        if IsShiftKeyDown() then keyPressed = "SHIFT-" .. keyPressed end
+        if IsControlKeyDown() then keyPressed = "CTRL-" .. keyPressed end
+        if IsAltKeyDown() then keyPressed = "ALT-" .. keyPressed end
+        keyPressed = DinoController_NormalizeBindingKey(keyPressed)
+
+        local index
+        for index = 1, table.getn(worldMapControllerActions) do
+            local action = worldMapControllerActions[index]
+            local key1, key2 = GetBindingKey(action)
+            if keyPressed == DinoController_NormalizeBindingKey(key1) or
+               keyPressed == DinoController_NormalizeBindingKey(key2) then
+                RunBinding(action)
+                return
+            end
+        end
+
+        if originalWorldMapOnKeyDown then originalWorldMapOnKeyDown() end
+    end)
 end
 
 local function DetectAutoLootCVar()
@@ -634,6 +841,7 @@ end
 
 local controllerButton
 local reticleButton
+local reticleOpacityButton
 local autoQuestButton
 local autoLootButton
 local hudButton
@@ -648,7 +856,9 @@ local xActionTypeText
 local xActionSlotText
 local autoTrackQuestButton
 local swapMenuButtonsButton
+local secondaryWindowsButton
 local dpadLayoutButton
+local hudLayoutButton
 local controllerEmphasis
 local primaryActionText
 
@@ -656,6 +866,7 @@ local function UpdateMenu()
     EnsureDefaults()
     controllerButton:SetText("Controller-Unterstuetzung: " .. OnOff(DinoControllerDB.controllerEnabled))
     reticleButton:SetText("Fadenkreuz: " .. OnOff(DinoControllerDB.showReticle))
+    if reticleOpacityButton then reticleOpacityButton:SetText("Fadenkreuz-Stufe: " .. (DinoControllerDB.reticleOpacityLevel or 3)) end
     autoQuestButton:SetText("Auto Quest: " .. OnOff(DinoControllerDB.autoQuest))
     hudButton:SetText("Controller-HUD: " .. OnOff(DinoControllerHUDDB and DinoControllerHUDDB.hudVisible or 1))
     hudLockButton:SetText("HUD Position: " .. ((DinoControllerHUDDB and DinoControllerHUDDB.hudLocked == 1) and "Gesperrt" or "Entsperrt"))
@@ -665,7 +876,9 @@ local function UpdateMenu()
     targetHealerButton:SetText(DinoControllerDB.targetMode == "healer" and "[ Healer ]" or "Healer")
     if autoTrackQuestButton then autoTrackQuestButton:SetText("Quest auto-verfolgen: " .. OnOff(DinoControllerDB.autoTrackQuest)) end
     if swapMenuButtonsButton then swapMenuButtonsButton:SetText("Select/Start tauschen: " .. OnOff(DinoControllerDB.swapMenuButtons)) end
+    if secondaryWindowsButton then secondaryWindowsButton:SetText("Zusatzfenster: " .. OnOff(DinoControllerDB.secondaryWindows)) end
     if dpadLayoutButton then dpadLayoutButton:SetText("D-Pad Layout: " .. (DinoControllerDB.dpadLayout or "Standard")) end
+    if hudLayoutButton then hudLayoutButton:SetText("HUD Layout: " .. (DinoControllerDB.hudLayout or "Unten")) end
     DinoController_RefreshPrimaryAction()
     if primaryActionText then
         local info = DinoController_GetPrimaryActionInfo()
@@ -707,11 +920,18 @@ CreateSectionTitle(18, -96, "STEUERUNG")
 CreateSectionTitle(208, -96, "TASTEN")
 CreateSectionTitle(398, -96, "QUEST")
 CreateSectionTitle(398, -202, "ANZEIGE")
-CreateSectionTitle(208, -260, "AKTION")
 CreateSectionTitle(18, -374, "INFO")
 
 reticleButton = CreateMenuButtonAt(398, -224, 170, function()
     DinoControllerDB.showReticle = DinoControllerDB.showReticle == 1 and 0 or 1
+    UpdateReticle()
+    UpdateMenu()
+end)
+
+reticleOpacityButton = CreateMenuButtonAt(398, -254, 170, function()
+    local level = DinoControllerDB.reticleOpacityLevel or 3
+    if level >= 3 then level = 1 else level = level + 1 end
+    DinoControllerDB.reticleOpacityLevel = level
     UpdateReticle()
     UpdateMenu()
 end)
@@ -721,7 +941,7 @@ autoQuestButton = CreateMenuButtonAt(398, -118, 170, function()
     UpdateMenu()
 end)
 
-hudButton = CreateMenuButtonAt(398, -254, 170, function()
+hudButton = CreateMenuButtonAt(398, -284, 170, function()
     if DinoControllerHUDDB then
         if DinoControllerHUDDB.hudVisible == 1 then
             if DinoHUD_Hide then DinoHUD_Hide() end
@@ -732,7 +952,7 @@ hudButton = CreateMenuButtonAt(398, -254, 170, function()
     UpdateMenu()
 end)
 
-hudLockButton = CreateMenuButtonAt(398, -284, 170, function()
+hudLockButton = CreateMenuButtonAt(398, -314, 170, function()
     if DinoControllerHUDDB then
         if DinoControllerHUDDB.hudLocked == 1 then
             if DinoHUD_Unlock then DinoHUD_Unlock() end
@@ -740,6 +960,16 @@ hudLockButton = CreateMenuButtonAt(398, -284, 170, function()
             if DinoHUD_Lock then DinoHUD_Lock() end
         end
     end
+    UpdateMenu()
+end)
+
+hudLayoutButton = CreateMenuButtonAt(398, -344, 170, function()
+    if DinoControllerDB.hudLayout == "Seitlich" then
+        DinoControllerDB.hudLayout = "Unten"
+    else
+        DinoControllerDB.hudLayout = "Seitlich"
+    end
+    if DinoHUD_ApplyLayout then DinoHUD_ApplyLayout() end
     UpdateMenu()
 end)
 
@@ -843,7 +1073,16 @@ swapMenuButtonsButton:SetScript("OnClick", function()
     UpdateMenu()
 end)
 
-local dmmButton = CreateMenuButtonAt(208, -218, 170, function()
+secondaryWindowsButton = CreateMenuButtonAt(208, -208, 170, function()
+    DinoControllerDB.secondaryWindows = DinoControllerDB.secondaryWindows == 1 and 0 or 1
+    if DinoControllerDB.secondaryWindows ~= 1 then
+        pendingMapQuestWindow = nil
+        nextMapQuestWindow = "map"
+    end
+    UpdateMenu()
+end)
+
+local dmmButton = CreateMenuButtonAt(208, -248, 170, function()
     local dmmFrame = getglobal and getglobal("DinoMacroManagerFrame")
     menu:Hide()
     if dmmFrame and dmmFrame:IsShown() then return end
@@ -853,12 +1092,13 @@ local dmmButton = CreateMenuButtonAt(208, -218, 170, function()
         Print("DinoMacroManager ist nicht geladen.")
     end
 end)
-dmmButton:SetText("DinoMacroManager (/dmm)")
+dmmButton:SetText("DinoMacroManager")
 
-primaryActionText = menu:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-primaryActionText:SetPoint("TOPLEFT", menu, "TOPLEFT", 208, -286)
-primaryActionText:SetWidth(170)
-primaryActionText:SetJustifyH("CENTER")
+local dmmInfoText = menu:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+dmmInfoText:SetPoint("TOPLEFT", menu, "TOPLEFT", 208, -278)
+dmmInfoText:SetWidth(170)
+dmmInfoText:SetJustifyH("LEFT")
+dmmInfoText:SetText("Erstelle eigene Zauberketten mit 2-4 Zaubern und verwalte bis zu 14 Makro-Slots.\n\n|cffffff77Oeffnen mit /dmm|r")
 
 local infoText = menu:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 infoText:SetPoint("TOPLEFT", menu, "TOPLEFT", 18, -396)
@@ -871,15 +1111,94 @@ infoText:SetText("|cff33ff99Info:|r\n" ..
                  "D-Pad Layout Mitte: ohne Modifier = 5-8, R1/L2 = 1-4, R2 = 9-12.\n" ..
                  "|cffffff77/dino bind|r - Controller Tasten neu installieren")
 
+local infoPopup = CreateFrame("Frame", "DinoControllerInfoPopup", UIParent)
+infoPopup:SetWidth(480)
+infoPopup:SetHeight(340)
+infoPopup:SetPoint("CENTER", UIParent, "CENTER", 0, 30)
+infoPopup:SetFrameStrata("DIALOG")
+infoPopup:SetFrameLevel(menu:GetFrameLevel() + 10)
+infoPopup:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 5, right = 5, top = 5, bottom = 5 }
+})
+infoPopup:SetBackdropColor(0.02, 0.04, 0.08, 0.98)
+infoPopup:SetBackdropBorderColor(0.34, 0.67, 0.92, 1)
+infoPopup:EnableMouse(true)
+infoPopup:SetMovable(true)
+infoPopup:RegisterForDrag("LeftButton")
+infoPopup:SetScript("OnDragStart", function() this:StartMoving() end)
+infoPopup:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
+infoPopup:Hide()
+
+if UISpecialFrames then
+    table.insert(UISpecialFrames, "DinoControllerInfoPopup")
+end
+
+local infoPopupTitle = infoPopup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+infoPopupTitle:SetPoint("TOPLEFT", infoPopup, "TOPLEFT", 16, -16)
+infoPopupTitle:SetPoint("TOPRIGHT", infoPopup, "TOPRIGHT", -16, -16)
+infoPopupTitle:SetJustifyH("LEFT")
+infoPopupTitle:SetText("|cffffcc00Folgende Funktionen sind fuer Controller nicht verfuegbar:|r")
+
+local infoPopupBody = infoPopup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+infoPopupBody:SetPoint("TOPLEFT", infoPopupTitle, "BOTTOMLEFT", 0, -10)
+infoPopupBody:SetPoint("TOPRIGHT", infoPopup, "TOPRIGHT", -16, -40)
+infoPopupBody:SetJustifyH("LEFT")
+infoPopupBody:SetText(
+    "|cffff7777-|r Briefkasten (Post versenden)\n" ..
+    "|cffff7777-|r Auktionen erstellen (Auktionshaus)\n" ..
+    "|cffff7777-|r Zauberbuch oeffnen und Zauber in die Actionbar setzen\n" ..
+    "|cffff7777-|r Chat- / Freunde-Funktionen\n" ..
+    "|cffff7777-|r Erweiterte Bot-Steuerung\n" ..
+    "  |cff88aaff(Bot greift an ist mit \"Aktion\" verbunden)|r\n\n" ..
+    "|cff7fc8ffHinweis zu den Aktionsleisten:|r\n" ..
+    "Die Standardbelegung unterstuetzt 14 direkte Controller-Aktionen.\n" ..
+    "|cff33ff99Mehr Aktionen & Zauberketten ueber den DinoMacroManager:|r\n" ..
+    "|cffffff77/dmm|r"
+)
+
+local infoPopupClose = CreateFrame("Button", nil, infoPopup, "UIPanelButtonTemplate")
+infoPopupClose:SetWidth(80)
+infoPopupClose:SetHeight(22)
+infoPopupClose:SetPoint("BOTTOMRIGHT", infoPopup, "BOTTOMRIGHT", -14, 14)
+infoPopupClose:SetText("Schliessen")
+infoPopupClose:SetScript("OnClick", function() infoPopup:Hide() end)
+
+local function ToggleInfoPopup()
+    if infoPopup:IsVisible() then
+        infoPopup:Hide()
+    else
+        infoPopup:Show()
+    end
+end
+
+local infoButton = CreateFrame("Button", nil, menu, "UIPanelButtonTemplate")
+infoButton:SetWidth(130)
+infoButton:SetHeight(25)
+infoButton:SetPoint("BOTTOMLEFT", menu, "BOTTOMLEFT", 18, 16)
+infoButton:SetText("Controller-Info")
+infoButton:SetScript("OnClick", ToggleInfoPopup)
+
 local closeButton = CreateFrame("Button", nil, menu, "UIPanelButtonTemplate")
 closeButton:SetWidth(90)
 closeButton:SetHeight(25)
 closeButton:SetPoint("BOTTOMRIGHT", menu, "BOTTOMRIGHT", -18, 16)
 closeButton:SetText("Schliessen")
-closeButton:SetScript("OnClick", function() menu:Hide() end)
+closeButton:SetScript("OnClick", function()
+    infoPopup:Hide()
+    menu:Hide()
+end)
 
 local function ToggleMenu()
-    if menu:IsVisible() then menu:Hide() else UpdateMenu(); menu:Show() end
+    if menu:IsVisible() then
+        infoPopup:Hide()
+        menu:Hide()
+    else
+        UpdateMenu()
+        menu:Show()
+    end
 end
 
 local function SetOption(name, value)
@@ -914,7 +1233,7 @@ SlashCmdList["DINOCONTROLLER"] = function(message)
     if command == "" or command == "menu" then
         ToggleMenu()
     elseif command == "camera" then
-        ApplyCamera()
+        ApplyCamera(true)
         Print("Kameraeinstellungen wurden erneut angewendet.")
     elseif command == "bind" or command == "bindings" then
         InstallBindings(true)
@@ -1019,7 +1338,9 @@ frame:SetScript("OnEvent", function()
         PositionLootFrameAtCursor()
     elseif event == "SPELLS_CHANGED" or (event == "UNIT_INVENTORY_CHANGED" and arg1 == "player") then
         DinoController_RefreshPrimaryAction()
-        DinoController_ApplyButtonLayout(nil)
+        if not uiModeActive then
+            DinoController_ApplyButtonLayout(nil)
+        end
         if menu:IsVisible() then UpdateMenu() end
     elseif event == "UPDATE_BONUS_ACTIONBAR" then
         if DinoControllerDB and DinoControllerDB.controllerEnabled == 1 then
@@ -1032,6 +1353,15 @@ frame:SetScript("OnEvent", function()
     end
 end)
 frame:SetScript("OnUpdate", function()
+    if pendingMapQuestWindow == "questlog" then
+        if WorldMapIsVisible() then
+            CloseWorldMap()
+        else
+            pendingMapQuestWindow = nil
+            OpenAndFocusQuestLog()
+        end
+    end
+
     if this.pendingCamera then
         this.pendingCamera = this.pendingCamera - 1
         if this.pendingCamera <= 0 then
@@ -1040,13 +1370,7 @@ frame:SetScript("OnUpdate", function()
         end
     end
 
-    local lootActive = LootFrame and LootFrame:IsVisible() and DinoController_IsUIModeActive and DinoController_IsUIModeActive()
-    if DinoControllerDB.swapAB == 1 then
-        lootStatePixel.tex:SetTexture(lootActive and 1 or 0.125, 0, lootActive and 1 or 0.125, 1)
-    else
-        lootStatePixel.tex:SetTexture(0, lootActive and 1 or 0.125, lootActive and 1 or 0.125, 1)
-    end
-    lootStatePixel:Show()
+    UpdateControllerStatePixel()
 
     if ambiguityClearAt and GetTime() >= ambiguityClearAt then
         ambiguousQuestList = nil

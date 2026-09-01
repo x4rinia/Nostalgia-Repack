@@ -19,6 +19,8 @@ internal sealed class ControllerMapper
     private readonly KeyChord _l2Chord;
     private readonly KeyChord _r2Chord;
 
+    public bool CursorMayRemainVisible { get; private set; }
+
     public ControllerMapper(BridgeConfig config, Action? cursorMoved = null)
     {
         _config = config;
@@ -68,7 +70,8 @@ internal sealed class ControllerMapper
         ApplyPendingCursorReturn();
         UpdateLeftStick(gamepad);
         bool cameraActive = UpdateCamera(gamepad);
-        ushort actionKey = GetActionKey(wowWindow, out bool lootActive);
+        ushort actionKey = GetActionKey(wowWindow, out bool lootActive, out bool cursorMayRemainVisible);
+        CursorMayRemainVisible = cursorMayRemainVisible;
         if (Pressed(gamepad.Buttons, NativeMethods.XINPUT_GAMEPAD_A))
             ActivateFaceButton(wowWindow, NativeMethods.VK_NUMPAD0, actionKey, lootActive);
         if (Pressed(gamepad.Buttons, NativeMethods.XINPUT_GAMEPAD_B))
@@ -214,9 +217,10 @@ internal sealed class ControllerMapper
         }
     }
 
-    private ushort GetActionKey(IntPtr wowWindow, out bool lootActive)
+    private ushort GetActionKey(IntPtr wowWindow, out bool lootActive, out bool cursorMayRemainVisible)
     {
         lootActive = false;
+        cursorMayRemainVisible = false;
         IntPtr hdc = NativeMethods.GetDC(wowWindow);
         if (hdc == IntPtr.Zero)
             return 0;
@@ -232,6 +236,7 @@ internal sealed class ControllerMapper
             byte b = (byte)((pixel >> 16) & 0xFF);
 
             lootActive = Math.Max(r, Math.Max(g, b)) > 200;
+            cursorMayRemainVisible = b >= 80;
             if (r < 50 && g > 20 && b > 20)
                 return NativeMethods.VK_NUMPAD0;
             if (r > 20 && g < 50 && b > 20)

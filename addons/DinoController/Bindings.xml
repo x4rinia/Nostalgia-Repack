@@ -23,6 +23,9 @@
     <Binding name="DINOCONTROLLER_MENU_CYCLE" hidden="true">
         DinoController_ToggleMenuWindows();
     </Binding>
+    <Binding name="DINOCONTROLLER_MAP_QUEST_TOGGLE" hidden="true">
+        DinoController_ToggleMapQuest();
+    </Binding>
     <Binding name="DINOCONTROLLER_UI_CANCEL" hidden="true">
         DinoController_UICancel();
     </Binding>

@@ -23,6 +23,10 @@ internal static class NativeMethods
     internal const ushort VK_CONTROL = 0x11;
     internal const ushort VK_ALT = 0x12;
     internal const ushort VK_ESCAPE = 0x1B;
+    internal const ushort VK_LEFT = 0x25;
+    internal const ushort VK_UP = 0x26;
+    internal const ushort VK_RIGHT = 0x27;
+    internal const ushort VK_DOWN = 0x28;
     internal const ushort VK_F11 = 0x7A;
     internal const ushort VK_F12 = 0x7B;
     internal const ushort VK_NUMPAD0 = 0x60;
@@ -42,6 +46,7 @@ internal static class NativeMethods
 
     private const uint INPUT_MOUSE = 0;
     private const uint INPUT_KEYBOARD = 1;
+    private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
     private const uint KEYEVENTF_KEYUP = 0x0002;
     private const uint MOUSEEVENTF_MOVE = 0x0001;
     private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
@@ -116,6 +121,12 @@ internal static class NativeMethods
 
     internal static void SendKey(ushort virtualKey, bool down)
     {
+        uint flags = virtualKey is VK_LEFT or VK_UP or VK_RIGHT or VK_DOWN
+            ? KEYEVENTF_EXTENDEDKEY
+            : 0;
+        if (!down)
+            flags |= KEYEVENTF_KEYUP;
+
         Send(new Input
         {
             Type = INPUT_KEYBOARD,
@@ -124,7 +135,7 @@ internal static class NativeMethods
                 Keyboard = new KeyboardInput
                 {
                     VirtualKey = virtualKey,
-                    Flags = down ? 0 : KEYEVENTF_KEYUP
+                    Flags = flags
                 }
             }
         });
