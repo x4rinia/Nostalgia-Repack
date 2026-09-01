@@ -37,7 +37,8 @@ Beispielkonfiguration ohne persoenliche Pfade. Wichtige Werte:
 - `CameraPixelsPerTick`
 - `InvertCameraY`
 - `CursorAutoHide` und `CursorHideDelayMilliseconds`
-- `ButtonMappings`
+- `ButtonMappings` fuer R3, D-Pad und Trigger. X/Y bleiben logische
+  DinoController-Aktionen und werden im Addon passend zum Layout getauscht.
 
 ## Selbsttest
 

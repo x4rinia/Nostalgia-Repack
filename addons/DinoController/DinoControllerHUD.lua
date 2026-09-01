@@ -1,11 +1,11 @@
--- DinoControllerHUD.lua – Controller-HUD mit 12-Slot Actionbar & ClassMode
+-- DinoControllerHUD.lua – Controller-HUD mit frei belegbaren ActionSlots
 -- Author: x4rinia
 -- Vanilla 1.12.1 stellt 120 ActionSlots bereit.
 -- Die 4 D-Pad-Slots bedienen die untere WoW-Actionbar (Slots 1–12):
 --   Ohne Modifier: Slots 1–4
 --   L2 gehalten:   Slots 5–8
 --   R2 gehalten:   Slots 9–12
--- Slot 5 (X):      Klassenmodus (Haltung / Form / Stealth)
+-- Slot 5 (X):      Frei belegbare Aktion (ActionSlot 13)
 -- Slot 6 (R3):     Mount (ActionSlot 78)
 
 DinoControllerHUDDB = DinoControllerHUDDB or {}
@@ -15,7 +15,7 @@ local HUD_SLOTS = {
     { id = 2, name = "DPadRight", actionSlot = 2,  label = "RT", arrow = "→" },
     { id = 3, name = "DPadDown",  actionSlot = 3,  label = "DN", arrow = "↓" },
     { id = 4, name = "DPadLeft",  actionSlot = 4,  label = "LT", arrow = "←" },
-    { id = 5, name = "ClassMode", actionSlot = nil, label = "X",  arrow = nil },
+    { id = 5, name = "XAction",   actionSlot = 13,  label = "X",  arrow = nil },
     { id = 6, name = "Mount",     actionSlot = 14,  label = "R3", arrow = nil },
     { id = 7, name = "AButton",   actionSlot = nil, label = "A",  arrow = nil },
     { id = 8, name = "Target",    actionSlot = nil, label = "Y",  arrow = nil },
@@ -52,8 +52,10 @@ function DinoHUD_UpdateLabels()
         end
     end
 
+    local xActionButton = (DinoControllerDB and DinoControllerDB.swapXY == 1) and "Y" or "X"
+    HUD_SLOTS[5].label = xActionButton
+
     if hudFrame and hudFrame.xHint then
-        local xActionButton = (DinoControllerDB and DinoControllerDB.swapXY == 1) and "Y" or "X"
         hudFrame.xHint:SetText("|cffaaaaaa" .. xActionButton .. "|r")
     end
 end
@@ -284,40 +286,6 @@ function DinoHUD_TriggerFlashSlot14()
 end
 
 -- =========================================================================
--- Klassenmodus (Stance / Form / Stealth)
--- =========================================================================
-
-function DinoHUD_CycleClassStance()
-    if DinoController_IsUIModeActive and DinoController_IsUIModeActive() then return end
-    local numForms = GetNumShapeshiftForms()
-    if not numForms or numForms == 0 then return end
-
-    local activeIndex = 0
-    local i
-    for i = 1, numForms do
-        local texture, name, isActive, isCastable = GetShapeshiftFormInfo(i)
-        if isActive then
-            activeIndex = i
-            break
-        end
-    end
-
-    if numForms == 1 then
-        CastShapeshiftForm(1)
-    else
-        local nextIndex = activeIndex + 1
-        if nextIndex > numForms then
-            if activeIndex == numForms then
-                CastShapeshiftForm(activeIndex)
-                return
-            end
-            nextIndex = 1
-        end
-        CastShapeshiftForm(nextIndex)
-    end
-end
-
--- =========================================================================
 -- Einzelnen HUD-Button erstellen
 -- =========================================================================
 
@@ -428,7 +396,7 @@ local function CreateHUDButton(parent, slotInfo, index)
     btn.countText = count
 
     -- =================================================================
-    -- UpdateDisplay: Slot 1–4 & 6 (ActionSlot) vs Slot 5 (ClassMode)
+    -- UpdateDisplay der Aktionsslots und Sondertasten
     -- =================================================================
     btn.UpdateDisplay = function(self)
         self.nameText:Hide()
@@ -439,112 +407,6 @@ local function CreateHUDButton(parent, slotInfo, index)
                 self.icon:SetVertexColor(1.0, 1.0, 1.0)
             end
             self:SetAlpha(1.0)
-            if self.countText then self.countText:Hide() end
-            if self.cooldown then CooldownFrame_SetTimer(self.cooldown, 0, 0, 0) end
-            return
-        end
-
-        if self.dinoSlotInfo.id == 5 then
-            -- X Aktion Button
-            local actionType = DinoControllerDB and DinoControllerDB.xActionType or "ClassMode"
-
-            if actionType == "Action" then
-                local actSlot = 13
-                local hasAction = HasAction(actSlot)
-                if hasAction then
-                    local dmmInfo = DinoHUD_GetActionSlotDMMInfo(actSlot)
-                    local texture = (dmmInfo and dmmInfo.texture) or GetActionTexture(actSlot)
-                    if self.icon then
-                        self.icon:SetTexture(texture)
-                        self.icon:Show()
-                    end
-
-                    local isUsable, notEnoughMana
-                    if dmmInfo then
-                        isUsable, notEnoughMana = dmmInfo.isUsable, dmmInfo.notEnoughMana
-                    else
-                        isUsable, notEnoughMana = IsUsableAction(actSlot)
-                        if IsConsumableAction(actSlot) then
-                            local actionCount = GetActionCount(actSlot)
-                            if actionCount and actionCount == 0 then
-                                isUsable = false
-                            end
-                        end
-                    end
-
-                    local inRange = dmmInfo and dmmInfo.inRange or IsActionInRange(actSlot)
-                    if inRange == 0 then
-                        if self.icon then self.icon:SetVertexColor(0.8, 0.1, 0.1) end
-                    elseif isUsable then
-                        if self.icon then self.icon:SetVertexColor(1.0, 1.0, 1.0) end
-                    elseif notEnoughMana then
-                        if self.icon then self.icon:SetVertexColor(0.3, 0.3, 0.8) end
-                    else
-                        if self.icon then self.icon:SetVertexColor(0.4, 0.4, 0.4) end
-                    end
-                    self:SetAlpha(1.0)
-
-                    if self.cooldown then
-                        local start, duration, enable
-                        if dmmInfo then
-                            start, duration, enable = dmmInfo.cooldownStart, dmmInfo.cooldownDuration, dmmInfo.cooldownEnable
-                        else
-                            start, duration, enable = GetActionCooldown(actSlot)
-                        end
-                        if start and start > 0 and duration and duration > 0 then
-                            CooldownFrame_SetTimer(self.cooldown, start, duration, enable)
-                        else
-                            CooldownFrame_SetTimer(self.cooldown, 0, 0, 0)
-                        end
-                    end
-                else
-                    if self.icon then
-                        self.icon:SetTexture(nil)
-                        self.icon:Hide()
-                    end
-                    self:SetAlpha(0.4)
-                end
-            else
-                -- ClassMode
-                local numForms = GetNumShapeshiftForms()
-                if numForms and numForms > 0 then
-                    local activeIndex = 0
-                    local activeTexture = nil
-                    local i
-                    for i = 1, numForms do
-                        local texture, name, isActive = GetShapeshiftFormInfo(i)
-                        if isActive then
-                            activeIndex = i
-                            activeTexture = texture
-                            break
-                        end
-                    end
-                    if activeIndex > 0 and activeTexture then
-                        if self.icon then
-                            self.icon:SetTexture(activeTexture)
-                            self.icon:Show()
-                            self.icon:SetVertexColor(1.0, 1.0, 1.0)
-                        end
-                        self:SetAlpha(1.0)
-                    else
-                        local texture = GetShapeshiftFormInfo(1)
-                        if texture and self.icon then
-                            self.icon:SetTexture(texture)
-                            self.icon:Show()
-                            self.icon:SetVertexColor(1.0, 1.0, 1.0)
-                        else
-                            if self.icon then self.icon:Hide() end
-                        end
-                        self:SetAlpha(1.0)
-                    end
-                else
-                    if self.icon then
-                        self.icon:SetTexture(nil)
-                        self.icon:Hide()
-                    end
-                    self:SetAlpha(0.4)
-                end
-            end
             if self.countText then self.countText:Hide() end
             if self.cooldown then CooldownFrame_SetTimer(self.cooldown, 0, 0, 0) end
             return
@@ -564,7 +426,7 @@ local function CreateHUDButton(parent, slotInfo, index)
             return
         end
 
-        -- Standard ActionSlot Buttons (1–4, 6)
+        -- Standard ActionSlot Buttons (1–6)
         if self.dinoSlotInfo.id == 6 and DinoHUD_GetMountActionSlot then
             self.dinoActionSlot = DinoHUD_GetMountActionSlot()
         end
@@ -661,7 +523,7 @@ local function CreateHUDButton(parent, slotInfo, index)
     -- Drag & Drop
     btn:SetScript("OnDragStart", function()
         if hudLocked then return end
-        if this.dinoSlotInfo.id == 5 or this.dinoSlotInfo.id == 8 then return end
+        if this.dinoSlotInfo.id == 8 then return end
         local slot = this.dinoActionSlot
         if slot and HasAction(slot) then
             PickupAction(slot)
@@ -670,7 +532,7 @@ local function CreateHUDButton(parent, slotInfo, index)
     end)
 
     btn:SetScript("OnReceiveDrag", function()
-        if this.dinoSlotInfo.id == 5 or this.dinoSlotInfo.id == 8 then return end
+        if this.dinoSlotInfo.id == 8 then return end
         local slot = this.dinoActionSlot
         if slot then
             PlaceAction(slot)
@@ -679,7 +541,7 @@ local function CreateHUDButton(parent, slotInfo, index)
     end)
 
     btn:SetScript("OnClick", function()
-        if this.dinoSlotInfo.id == 5 then
+        if this.dinoSlotInfo.id == 5 and hudLocked then
             DinoController_ExecuteXAction()
             this:UpdateDisplay()
             return
@@ -715,23 +577,6 @@ local function CreateHUDButton(parent, slotInfo, index)
     end)
 
     btn:SetScript("OnEnter", function()
-        if this.dinoSlotInfo.id == 5 then
-            local actionType = DinoControllerDB and DinoControllerDB.xActionType or "ClassMode"
-            if actionType == "ClassMode" then
-                local numForms = GetNumShapeshiftForms()
-                if numForms and numForms > 0 then
-                    GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-                    GameTooltip:SetText("Klassenmodus (X)", 1.0, 1.0, 1.0)
-                    GameTooltip:AddLine("Schaltet durch Haltungen / Formen / Stealth.", 0.8, 0.8, 0.8, 1)
-                    GameTooltip:Show()
-                end
-            elseif actionType == "Action" then
-                GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-                GameTooltip:SetAction(13)
-                GameTooltip:Show()
-            end
-            return
-        end
         if this.dinoSlotInfo.id == 8 then
             GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
             GameTooltip:SetText("Target Player (Y)", 1.0, 1.0, 1.0)
@@ -849,7 +694,7 @@ local function CreateHUDFrame()
     hudFrame.separator = separator
 
     -- Bottom row: [ X/Y ] [ empty ] [ B3 ]
-    -- X = ClassMode or Custom 13
+    -- Frei belegbare X/Y-Aktion
     local btn5 = CreateHUDButton(hudFrame, HUD_SLOTS[5], 5)
     hudButtons[5] = btn5
 
@@ -1078,7 +923,7 @@ function DinoHUD_InstallWorldBindings()
     if dpadLeft then SetBinding(dpadLeft, "DINOHUD_ACTION4") end
 
     local xKey = DinoController_NormalizeBindingKey(mappings.X)
-    if xKey then SetBinding(xKey, "DINOHUD_CLASSMODE") end
+    if xKey then SetBinding(xKey, "DINOCONTROLLER_X_ACTION") end
 
     local r3Key = DinoController_NormalizeBindingKey(mappings.R3)
     if r3Key then SetBinding(r3Key, "DINOHUD_MOUNT") end

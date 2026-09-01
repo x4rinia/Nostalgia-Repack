@@ -103,7 +103,6 @@ local function EnsureDefaults()
     if DinoControllerDB.swapAB == nil then DinoControllerDB.swapAB = 0 end
     if DinoControllerDB.swapXY == nil then DinoControllerDB.swapXY = 0 end
     if DinoControllerDB.menuAction == nil then DinoControllerDB.menuAction = 1 end
-    if DinoControllerDB.xActionType == nil then DinoControllerDB.xActionType = "ClassMode" end
     if DinoControllerDB.targetMode ~= "healer" then DinoControllerDB.targetMode = "dps" end
     if DinoControllerDB.autoTrackQuest == nil then DinoControllerDB.autoTrackQuest = 1 end
     if DinoControllerDB.swapMenuButtons == nil then DinoControllerDB.swapMenuButtons = 0 end
@@ -395,19 +394,12 @@ end
 
 function DinoController_ExecuteXAction()
     if WorldMapIsVisible() then return end
-    local actionType = DinoControllerDB.xActionType
-    if actionType == "Action" then
-        local slot = 13
-        if DinoHUD_TriggerFlashSlot13 then
-            DinoHUD_TriggerFlashSlot13()
-        end
-        if type(slot) == "number" then
-            UseAction(slot)
-        end
-    else
-        if DinoHUD_CycleClassStance then
-            DinoHUD_CycleClassStance()
-        end
+    local slot = 13
+    if DinoHUD_TriggerFlashSlot13 then
+        DinoHUD_TriggerFlashSlot13()
+    end
+    if type(slot) == "number" then
+        UseAction(slot)
     end
 end
 
@@ -852,7 +844,6 @@ local targetDpsButton
 local targetHealerButton
 local menuActionButton
 local l3SlotText
-local xActionTypeText
 local xActionSlotText
 local autoTrackQuestButton
 local swapMenuButtonsButton
@@ -894,10 +885,6 @@ local function UpdateMenu()
         end
     end
 
-    if xActionTypeText then
-        local actionType = DinoControllerDB.xActionType or "ClassMode"
-        xActionTypeText:SetText("Aktion: " .. actionType)
-    end
 end
 
 controllerButton = CreateMenuButtonAt(18, -50, 552, function()
@@ -1000,30 +987,6 @@ dpadLayoutButton = CreateMenuButtonAt(18, -118, 170, function()
     UpdateMenu()
 end)
 
--- Steuerungsoptionen
-local xTitle = menu:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-xTitle:SetPoint("TOPLEFT", menu, "TOPLEFT", 18, -152)
-xTitle:SetText("X Aktion")
-
-xActionTypeText = menu:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-xActionTypeText:SetPoint("TOPLEFT", menu, "TOPLEFT", 18, -174)
-
-local xActionTypeToggle = CreateFrame("Button", nil, menu, "UIPanelButtonTemplate")
-xActionTypeToggle:SetWidth(170); xActionTypeToggle:SetHeight(22)
-xActionTypeToggle:SetPoint("TOPLEFT", menu, "TOPLEFT", 18, -194)
-xActionTypeToggle:SetText("Modus wechseln")
-xActionTypeToggle:SetScript("OnClick", function()
-    local t = DinoControllerDB.xActionType or "ClassMode"
-    if t == "ClassMode" then
-        DinoControllerDB.xActionType = "Action"
-    else
-        DinoControllerDB.xActionType = "ClassMode"
-    end
-    UpdateMenu()
-    if DinoHUD_UpdateLabels then DinoHUD_UpdateLabels() end
-    if UpdateAllButtons then UpdateAllButtons() end
-end)
-
 local targetModeTitle = menu:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 targetModeTitle:SetPoint("TOPLEFT", menu, "TOPLEFT", 18, -230)
 targetModeTitle:SetText("Target-Modus")
@@ -1106,7 +1069,7 @@ infoText:SetJustifyH("LEFT")
 infoText:SetWidth(552)
 infoText:SetText("|cff33ff99Info:|r\n" ..
                  "Leiste 1: Die Controller-Rahmen markieren immer die 4er-Gruppen 1-4, 5-8 und 9-12.\n" ..
-                 "Leiste 2: Slot 13 ist die X-Aktion, Slot 14 ist das Reittier.\n" ..
+                 "Leiste 2: Die X/Y-Taste ist frei belegbar, daneben liegt das Reittier.\n" ..
                  "D-Pad Layout Standard: ohne Modifier = 1-4, R1/L2 = 5-8, R2 = 9-12.\n" ..
                  "D-Pad Layout Mitte: ohne Modifier = 5-8, R1/L2 = 1-4, R2 = 9-12.\n" ..
                  "|cffffff77/dino bind|r - Controller Tasten neu installieren")

@@ -50,7 +50,7 @@ internal sealed class CursorVisibilityController : IDisposable
         Hide(force: true);
     }
 
-    public void Update(bool controllerModeActive, bool controllerInput, bool cursorMayRemainVisible)
+    public void Update(bool controllerModeActive, bool controllerInput)
     {
         if (!_enabled || !controllerModeActive)
         {
@@ -58,20 +58,19 @@ internal sealed class CursorVisibilityController : IDisposable
             return;
         }
 
-        if (cursorMayRemainVisible)
+        long now = Stopwatch.GetTimestamp();
+        if (controllerInput)
         {
-            Show();
+            _lastControllerInput = now;
+            Hide(force: NativeMethods.IsCursorVisible());
             return;
         }
 
-        long now = Stopwatch.GetTimestamp();
-        if (controllerInput)
-            _lastControllerInput = now;
-
-        // WoW kann seinen Cursor nach einer synthetischen Interaktion zeitversetzt
-        // wieder einblenden. Ausserhalb von NPC- und Lootfenstern wird der echte
-        // Windows-Zustand deshalb in jedem Zyklus erneut korrigiert.
-        Hide(force: NativeMethods.IsCursorVisible());
+        long lastPhysicalMouse = _mouseMonitor?.LastPhysicalInput ?? 0;
+        if (lastPhysicalMouse > _lastControllerInput && now - lastPhysicalMouse < _hideDelayTicks)
+            Show();
+        else
+            Hide();
     }
 
     public void Dispose()

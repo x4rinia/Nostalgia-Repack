@@ -48,18 +48,17 @@ werden.
 | Rechter Stick | Kamera drehen |
 | Target-Schultertaste vor | naechstes Ziel gemaess Target-Modus |
 | Target-Schultertaste zurueck | vorheriges Ziel gemaess Target-Modus |
-| D-Pad | Aktionen 1 bis 4; mit L2/R2 Aktionen 5 bis 12 |
+| D-Pad | Aktionen 1 bis 4 in der Reihenfolge oben, rechts, unten, links; mit L2/R2 entsprechend Aktionen 5 bis 12 |
 | View/Back | Weltkarte |
 | L3 | Autorun |
 | R3 | Mount-Aktionsslot |
+| X beziehungsweise ActionWest | frei belegbare X/Y-HUD-Aktion |
 | Y beziehungsweise ActionNorth | direktes Self-Target |
-| X beziehungsweise ActionWest | Klassenmodus oder frei belegte Aktion |
 
-Die beiden A/B-Positionen werden intern als logische Aktionen behandelt. Im
-`/dino`-Menue koennen A/B und X/Y passend zum vom XInput-Treiber gemeldeten
-Xbox- oder Nintendo-Layout getauscht werden. Die Auswahl wird in
-`DinoControllerDB` gespeichert und bei jedem Login erneut auf die WoW-Bindings
-angewendet.
+Die A/B- und X/Y-Positionen werden intern als logische Aktionen behandelt. Im
+`/dino`-Menue koennen beide Paare passend zum vom XInput-Treiber gemeldeten
+Xbox- oder Nintendo-Layout getauscht werden. Die X/Y-Aktion bleibt dabei frei
+belegbar; ihre HUD-Beschriftung wechselt passend zwischen `X` und `Y`.
 
 ## Weltmodus
 
@@ -135,9 +134,10 @@ angewendet werden.
 
 Das kleine verschiebbare HUD zeigt vier D-Pad-Aktionen und die wichtigsten
 Facebutton-Aktionen. L2 und R2 schalten die D-Pad-Leiste auf weitere Seiten, so
-dass insgesamt zwoelf normale ActionSlots erreichbar sind. Klassenhaltung,
-Druidenform beziehungsweise Schurken-Stealth und ein Mountslot sind separat
-vorbereitet. Spellketten oder automatische Rotationen sind nicht enthalten.
+dass insgesamt zwoelf normale ActionSlots erreichbar sind. Die mit `X` oder
+`Y` beschriftete HUD-Aktion ist frei per Drag-and-drop belegbar; daneben ist
+ein Mountslot vorbereitet. Spellketten oder automatische Rotationen sind nicht
+enthalten.
 
 ## Konfiguration
 

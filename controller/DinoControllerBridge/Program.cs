@@ -33,8 +33,8 @@ internal static class Program
                 KeyMappingParser.Parse("NUMPADMINUS");
                 _ = new ControllerMapper(config);
                 using var cursorTest = new CursorVisibilityController(config);
-                cursorTest.Update(controllerModeActive: true, controllerInput: true, cursorMayRemainVisible: false);
-                cursorTest.Update(controllerModeActive: false, controllerInput: false, cursorMayRemainVisible: false);
+                cursorTest.Update(controllerModeActive: true, controllerInput: true);
+                cursorTest.Update(controllerModeActive: false, controllerInput: false);
                 Log(logPath, $"Selbsttest erfolgreich; Mausmonitor={cursorTest.MonitorAvailable}.");
                 return 0;
             }
@@ -99,7 +99,7 @@ internal static class Program
                 }
                 else
                     mapper.ReleaseAll();
-                cursor.Update(wowForeground, controllerInput, mapper.CursorMayRemainVisible);
+                cursor.Update(wowForeground, controllerInput);
 
                 Thread.Sleep(config.PollIntervalMilliseconds);
             }

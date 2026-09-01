@@ -59,9 +59,6 @@
     <Binding name="DINOHUD_ACTION4" hidden="true">
         DinoHUD_Action4();
     </Binding>
-    <Binding name="DINOHUD_CLASSMODE" hidden="true">
-        DinoHUD_CycleClassStance();
-    </Binding>
     <Binding name="DINOHUD_MOUNT" hidden="true">
         DinoHUD_UseMount();
     </Binding>
