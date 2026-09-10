@@ -62,6 +62,12 @@ local function UpdateControllerStatePixel()
         end
     end
 
+    if not DinoControllerDB or DinoControllerDB.controllerEnabled ~= 1 then
+        lootStatePixel.tex:SetTexture(0, 0, 0, 1)
+        lootStatePixel:Show()
+        return
+    end
+
     local lootActive = LootFrame and LootFrame:IsVisible() and
         DinoController_IsUIModeActive and DinoController_IsUIModeActive()
     local cursorState = 0.125
