@@ -1,0 +1,14 @@
+## Interface: 11200
+## Title: DinoController
+## Notes: WoW Vanilla 1.12.1. Open with /dino. Controller/HUD; supports DinoMacroManager macros.
+## Author: Nostalgia Team
+## Version: 1.0.0
+## SavedVariables: DinoControllerDB
+## SavedVariablesPerCharacter: DinoControllerHUDDB, DinoControllerCharacterDB
+
+BridgeMappings.lua
+DinoGroundSpells.lua
+DinoController.lua
+DinoControllerUI.lua
+DinoControllerHUD.lua
+Bindings.xml

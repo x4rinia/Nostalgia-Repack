@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: XBot
+## Author: Nostalgia Team
+## Notes: Convenient controls for Nostalgia PartyBots - /xbot
+## Version: 1.4
+## SavedVariables: XBotDB
+
+xbot.lua

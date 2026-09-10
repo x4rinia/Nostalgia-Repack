@@ -1,0 +1,35 @@
+# Never publish local runtime output or player data.
+/Server/logs/**
+/Web/Apache/logs/**
+/Web/www/sessions/**
+/backups/**
+*.log
+*.err
+*.dmp
+*.pdump
+*.pdb
+**/SavedVariables/**
+**/WTF/**
+**/Cache/**
+**/Screenshots/**
+**/WoW.exe
+/_build/**
+/controller.png
+
+# Machine-generated database identity and cryptographic material.
+/MariaDB/data/my.ini
+/MariaDB/data/*_key.pem
+/MariaDB/data/aria_log.*
+/MariaDB/data/*.pid
+
+# Upstream development/build metadata that is not needed by this runtime and
+# contains example or build-machine paths.
+/Web/PHP/snapshot.txt
+/Web/PHP/php.ini-development
+/Web/PHP/php.ini-production
+/Web/Apache/conf/misc/CA.pl
+/Web/Apache/bin/c_rehash.pl
+/Web/Apache/lib/cmake/**
+/MariaDB/include/**
+/MariaDB/lib/pkgconfig/**
+/MariaDB/share/fill_help_tables.sql

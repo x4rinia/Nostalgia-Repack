@@ -1,0 +1,34 @@
+* -text
+* -whitespace
+
+# Runtime binaries and extracted Vanilla server data are stored through Git LFS.
+*.mmtile filter=lfs diff=lfs merge=lfs -text
+*.vmo filter=lfs diff=lfs merge=lfs -text
+*.dbc filter=lfs diff=lfs merge=lfs -text
+*.exe filter=lfs diff=lfs merge=lfs -text
+*.map filter=lfs diff=lfs merge=lfs -text
+*.dll filter=lfs diff=lfs merge=lfs -text
+*.MYD filter=lfs diff=lfs merge=lfs -text
+*.MYI filter=lfs diff=lfs merge=lfs -text
+*.MAD filter=lfs diff=lfs merge=lfs -text
+*.MAI filter=lfs diff=lfs merge=lfs -text
+*.vmtile filter=lfs diff=lfs merge=lfs -text
+*.vmtree filter=lfs diff=lfs merge=lfs -text
+*.ibd filter=lfs diff=lfs merge=lfs -text
+*.lib filter=lfs diff=lfs merge=lfs -text
+*.so filter=lfs diff=lfs merge=lfs -text
+*.m2 filter=lfs diff=lfs merge=lfs -text
+*.frm filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+*.gif filter=lfs diff=lfs merge=lfs -text
+*.jar filter=lfs diff=lfs merge=lfs -text
+*.phar filter=lfs diff=lfs merge=lfs -text
+*.sys filter=lfs diff=lfs merge=lfs -text
+*.exp filter=lfs diff=lfs merge=lfs -text
+*.00000002 filter=lfs diff=lfs merge=lfs -text
+/MariaDB/data/ibdata1 filter=lfs diff=lfs merge=lfs -text
+/MariaDB/data/ib_logfile0 filter=lfs diff=lfs merge=lfs -text
+/MariaDB/data/ibtmp1 filter=lfs diff=lfs merge=lfs -text
+/MariaDB/data/undo001 filter=lfs diff=lfs merge=lfs -text
+/MariaDB/data/undo002 filter=lfs diff=lfs merge=lfs -text
+/MariaDB/data/undo003 filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,25 @@
+{
+  "Enabled": true,
+  "ControllerIndex": 0,
+  "LeftStickPressDeadzone": 0.3,
+  "LeftStickReleaseDeadzone": 0.22,
+  "RightStickDeadzone": 0.18,
+  "CameraPixelsPerTick": 12,
+  "InvertCameraY": false,
+  "PollIntervalMilliseconds": 8,
+  "CursorSettleDelayMilliseconds": 40,
+  "InteractionPressMilliseconds": 16,
+  "CursorAutoHide": true,
+  "CursorHideDelayMilliseconds": 1800,
+  "ButtonMappings": {
+    "X": "5",
+    "Y": "6",
+    "R3": "F1",
+    "DPadUp": "1",
+    "DPadRight": "2",
+    "DPadDown": "3",
+    "DPadLeft": "4",
+    "L2": "F9",
+    "R2": "F10"
+  }
+}

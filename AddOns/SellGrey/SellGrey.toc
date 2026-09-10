@@ -1,0 +1,6 @@
+## Interface: 11200
+## Title: SellGrey
+## Notes: Automatically sells grey/junk items to merchants in Vanilla WoW 1.12.1.
+## Author: Nostalgia
+## Version: 1.0.0
+SellGrey.lua

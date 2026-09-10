@@ -1,0 +1,5 @@
+## Interface: 11200
+## Title: Vanilla Clock
+## Notes: Zeigt eine Uhr unten rechts an und kann per /clock ein-/ausgeschaltet werden
+## Author: Nostalgia Team
+Clock.lua

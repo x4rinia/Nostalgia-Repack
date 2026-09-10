@@ -1,0 +1,10 @@
+## Interface: 11200
+## Title: DinoMacroManager
+## Notes: Open with /dmm. Fourteen spell chains; action-bar macros work with DinoController.
+## Author: Nostalgia Team
+## Version: 1.1.5
+## OptionalDeps: DinoController
+## SavedVariablesPerCharacter: DinoMacroManagerDB
+
+DinoMacroManager.lua
+Bindings.xml
