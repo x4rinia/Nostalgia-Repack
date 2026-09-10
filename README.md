@@ -29,6 +29,8 @@ The launcher does not start or contain the game client. Use **Start Controller B
 
 `DinoController` supplies controller navigation, action mappings, camera handling, cursor reset behavior, LootFrame positioning, and the `/dino` menu. `DinoMacroManager` supplies its current macro-chain workflow. The bridge translates the configured XInput controller buttons into keyboard input; its portable settings are in `Bridge\DinoControllerBridge.json`.
 
+![Nostalgia controller layout](Bridge/controller.png)
+
 For the intended setup:
 
 - enable `DinoController` and `DinoMacroManager` at the character-selection AddOns screen;
