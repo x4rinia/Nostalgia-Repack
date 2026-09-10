@@ -1,4 +1,6 @@
 -- Generated from Spell.dbc and SkillLineAbility.dbc for WoW 1.12.1 build 5875.
+-- Localized spell aliases, including German names, are internal client-locale
+-- lookups required for detection and are never displayed to the player.
 -- Included spells are directly castable player-class abilities whose raw
 -- Spell.Targets contains TARGET_FLAG_DEST_LOCATION (0x40). Triggered subspells
 -- (for example Explosive Trap Effect), self AoE, traps and totems are excluded.

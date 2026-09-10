@@ -1,12 +1,12 @@
--- DinoControllerHUD.lua – Controller-HUD mit frei belegbaren ActionSlots
+-- DinoControllerHUD.lua - controller HUD with freely assignable action slots
 -- Author: Nostalgia Team
--- Vanilla 1.12.1 stellt 120 ActionSlots bereit.
--- Die 4 D-Pad-Slots bedienen die untere WoW-Actionbar (Slots 1–12):
---   Ohne Modifier: Slots 1–4
---   L2 gehalten:   Slots 5–8
---   R2 gehalten:   Slots 9–12
--- Slot 5 (X):      Frei belegbare Aktion (ActionSlot 13)
--- Slot 6 (R3):     Mount (ActionSlot 78)
+-- Vanilla 1.12.1 provides 120 action slots.
+-- The four D-pad slots control the lower WoW action bar (slots 1-12):
+--   No modifier: slots 1-4
+--   Hold L2:     slots 5-8
+--   Hold R2:     slots 9-12
+-- Slot 5 (X):    freely assignable action (action slot 13)
+-- Slot 6 (R3):   mount (action slot 78)
 
 DinoControllerHUDDB = DinoControllerHUDDB or {}
 
@@ -61,7 +61,7 @@ function DinoHUD_UpdateLabels()
 end
 
 -- =========================================================================
--- Hilfsfunktionen
+-- Helper functions
 -- =========================================================================
 
 local function HUDPrint(msg)
@@ -78,7 +78,7 @@ local function EnsureHUDDefaults()
 end
 
 -- =========================================================================
--- Modifier-System (L2 / R2)
+-- Modifier system (L2 / R2)
 -- =========================================================================
 
 local function UpdateAllButtons()
@@ -396,7 +396,7 @@ local function CreateHUDButton(parent, slotInfo, index)
     btn.countText = count
 
     -- =================================================================
-    -- UpdateDisplay der Aktionsslots und Sondertasten
+    -- UpdateDisplay for action slots and special buttons
     -- =================================================================
     btn.UpdateDisplay = function(self)
         self.nameText:Hide()
@@ -694,7 +694,7 @@ local function CreateHUDFrame()
     hudFrame.separator = separator
 
     -- Bottom row: [ X/Y ] [ empty ] [ B3 ]
-    -- Frei belegbare X/Y-Aktion
+    -- Freely assignable X/Y action
     local btn5 = CreateHUDButton(hudFrame, HUD_SLOTS[5], 5)
     hudButtons[5] = btn5
 
@@ -943,6 +943,7 @@ SlashCmdList["DINOCONTROLLER"] = function(message)
     local text = string.lower(message or "")
     local _, _, command, value = string.find(text, "^(%S*)%s*(%S*)")
 
+    -- Legacy German on/off aliases remain internal for existing macros.
     if command == "lock" then
         DinoHUD_Lock()
     elseif command == "unlock" then

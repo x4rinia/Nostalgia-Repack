@@ -1,4 +1,4 @@
--- Automatisch von DinoControllerBridge.exe erzeugt; JSON ist die Quelle.
+-- Generated automatically by DinoControllerBridge.exe; JSON is the source.
 -- Author: Nostalgia Team
 DinoControllerBridgeConfig = {
     Enabled = 1,

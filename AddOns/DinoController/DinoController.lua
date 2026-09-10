@@ -1,6 +1,6 @@
--- DinoController - WoW-seitige Komfortfunktionen fuer Vanilla 1.12.1.
+-- DinoController - controller convenience features for Vanilla 1.12.1.
 -- Author: Nostalgia Team
--- XInput, Cursor-Automatik und Tastatur/Maus-Ausgabe bleiben in der Bridge.
+-- XInput, automatic cursor handling, and keyboard/mouse output remain in the bridge.
 
 DinoControllerDB = DinoControllerDB or {}
 DinoControllerCharacterDB = DinoControllerCharacterDB or {}
@@ -107,11 +107,13 @@ local function EnsureDefaults()
     if DinoControllerDB.swapMenuButtons == nil then DinoControllerDB.swapMenuButtons = 0 end
     if DinoControllerDB.secondaryWindows == nil then DinoControllerDB.secondaryWindows = 1 end
     if DinoControllerDB.dpadLayout == nil then DinoControllerDB.dpadLayout = "Standard" end
+    -- "Unten", "Mitte", and "Seitlich" are legacy SavedVariable enum values.
+    -- They remain internal for compatibility and are mapped to English UI labels.
     if DinoControllerDB.hudLayout == nil then DinoControllerDB.hudLayout = "Unten" end
     if DinoControllerDB.groundSpellMode == nil then
         DinoControllerDB.groundSpellMode = 0
     elseif DinoControllerDB.groundSpellMode ~= 0 then
-        -- Alte Mehrfachwerte auf den neuen globalen AN-Zustand migrieren.
+        -- Migrate old multi-value settings to the new global ON state.
         DinoControllerDB.groundSpellMode = 1
     end
     if DinoControllerCharacterDB.primaryAction == nil then DinoControllerCharacterDB.primaryAction = "Melee" end
@@ -138,8 +140,8 @@ local function OnOff(value)
     return "OFF"
 end
 
--- Ground-Spells werden aus den 1.12.1-Spell-Daten erkannt, bevor der originale
--- Client-Cast startet. So wird der Vanilla-Ground-Target mode nicht erzeugt.
+-- Ground-targeted spells are detected from the 1.12.1 spell data before the
+-- original client cast starts, preventing Vanilla's ground-targeting mode.
 local originalCastSpell = CastSpell
 local originalCastSpellByName = CastSpellByName
 local originalUseAction = UseAction
@@ -173,9 +175,9 @@ local function GetSpellIdentity(bookIndex, bookType, fallbackName)
         spellName = string.gsub(spellName, "%s*%b()$", "")
     end
 
-    -- Der Vanilla-1.12-Client stellt GetSpellLink nicht in jeder Cast-Strecke
-    -- verlaesslich bereit. Die aus Spell.dbc erzeugte Klassen-/Rang-Tabelle
-    -- liefert deshalb auch dort die eindeutige numerische Spell-ID.
+    -- The Vanilla 1.12 client does not reliably provide GetSpellLink on every
+    -- casting path. The class/rank table generated from Spell.dbc therefore
+    -- supplies the unambiguous numeric spell ID in those cases as well.
     if not spellId and spellName then
         local keys = GetPlayerGroundSpellTables()
         if keys then
@@ -266,11 +268,11 @@ local function TryAutomaticGroundCast(bookIndex, bookType, fallbackName)
     local isGround, spellId, spellName = IsGroundSpell(bookIndex, bookType, fallbackName)
     if not isGround then return nil end
 
-    -- Nur einen eventuell von einem frueheren Versuch verbliebenen Zustand
-    -- aufraeumen; der aktuelle Cast hat den Client-Targetmodus nie gestartet.
+    -- Clear only a state potentially left by an earlier attempt; the current
+    -- cast never started the client's targeting mode.
     CancelStaleGroundTargeting()
 
-    -- Ohne ausgewaehltes Unit-Target gibt es bewusst keinen Fallback.
+    -- Deliberately do not fall back when no unit target is selected.
     if not UnitExists or not UnitExists("target") then
         ShowAutoGroundError("This ground-targeted spell requires a target.")
         return "no_target"
@@ -325,6 +327,8 @@ local function GetClassPrimaryAction()
     return "Melee"
 end
 
+-- Localized spell names are internal client-locale lookups and are never shown
+-- as English-release labels.
 local primarySpellNames = {
     deDE = { Wand = "Schie\195\159en", Bow = "Automatischer Schuss" },
     enUS = { Wand = "Shoot", Bow = "Auto Shot" },
@@ -360,14 +364,14 @@ function DinoController_RefreshPrimaryAction()
     local bowIndex, bowName, bowTexture = FindPrimarySpell("Bow")
     local localeNames = primarySpellNames[GetLocale and GetLocale() or "enUS"] or primarySpellNames.enUS
     primaryActionInfo.Wand = {
-        label = "Schie\195\159en",
+        label = "Shoot",
         available = 1,
         spellIndex = wandIndex,
         spellName = wandName or localeNames.Wand,
         texture = wandTexture or "Interface\\Icons\\Ability_ShootWand"
     }
     primaryActionInfo.Bow = {
-        label = "Automatischer Schuss",
+        label = "Auto Shot",
         available = 1,
         spellIndex = bowIndex,
         spellName = bowName or localeNames.Bow,
@@ -468,7 +472,7 @@ local function GetFriendlyTargetUnits()
     local index
 
     if raidCount > 0 then
-        -- Im Raid ist der Spieler bereits genau einmal als raidN enthalten.
+        -- In a raid, the player is already included exactly once as raidN.
         for index = 1, raidCount do
             local unit = "raid" .. index
             if UnitExists(unit) then
@@ -528,16 +532,16 @@ function DinoController_ApplyTargetMode(save)
         SetBinding("NUMPAD3", "TARGETPREVIOUSENEMY")
     end
 
-    -- Im UI-Modus sind D-Pad und Confirm nur temporaer umgebunden. Diese
-    -- Belegung darf beim Wechsel im /dino-Menue nicht dauerhaft gespeichert
-    -- werden; beim Verlassen des UI-Modus wird ohnehin sauber gespeichert.
+    -- In UI mode, the D-pad and Confirm are only rebound temporarily. Do not
+    -- save these bindings permanently when switching in the /dino menu; they
+    -- are saved correctly when leaving UI mode.
     if save and not uiModeActive then SaveBindings(GetCurrentBindingSet()) end
 end
 
 function DinoController_ApplyButtonLayout(save)
-    -- Im UI-Modus sind D-Pad, Confirm und Cancel temporaer an UI-Funktionen gebunden.
-    -- Ein Aufruf durch Events (z. B. UNIT_INVENTORY_CHANGED nach Item-Kauf) darf
-    -- die aktiven UI-Bindings keinesfalls mit Welt-Aktionen ueberschreiben.
+    -- In UI mode, D-pad, Confirm, and Cancel are temporarily bound to UI actions.
+    -- Event calls (for example UNIT_INVENTORY_CHANGED after buying an item) must
+    -- never overwrite the active UI bindings with world actions.
     if uiModeActive then return end
 
     local function SetPrimaryActionBinding(key)
@@ -623,9 +627,9 @@ local function ApplyCamera(forceMaximumDistance)
     SafeSetCVar("cameraTerrainTilt", "0")
     SafeSetCVar("cameraBobbing", "0")
     SafeSetCVar("cameraPitch", tostring(CAMERA_PITCH))
-    -- Der Client speichert die aktuelle Distanz charakterbezogen in
-    -- camera-settings.txt. Beim Login darf dieser Wert nicht ueberschrieben
-    -- werden; nur /dino camera zoomt weiterhin bewusst auf das Maximum.
+    -- The client stores the current distance per character in camera-settings.txt.
+    -- Login must not overwrite that value; only /dino camera intentionally zooms
+    -- out to the maximum.
     if forceMaximumDistance then
         CameraZoomOut(50)
     end
@@ -636,8 +640,8 @@ local function InstallBindings(force)
         return
     end
 
-    -- Die kurzzeitig verwendeten Pfeiltasten-Kamerabindings wieder auf die
-    -- Vanilla-Belegung setzen. Fremde Benutzerbelegungen bleiben erhalten.
+    -- Restore the arrow keys briefly used for camera bindings to their Vanilla
+    -- assignments. Unrelated custom user bindings remain unchanged.
     local obsoleteCameraBindings = {
         { "LEFT", "MOVEVIEWLEFT", "DINOCONTROLLER_CAMERA_LEFT", "TURNLEFT" },
         { "RIGHT", "MOVEVIEWRIGHT", "DINOCONTROLLER_CAMERA_RIGHT", "TURNRIGHT" },
@@ -767,11 +771,10 @@ function DinoController_ToggleMapQuest()
     end
 end
 
--- WorldMapFrame faengt in Vanilla alle Tastendruecke selbst ab und leitet
--- standardmaessig nur TOGGLEWORLDMAP und SCREENSHOT weiter. Dadurch erreicht
--- unser eigenes Karten-/Questlog-Binding den normalen Binding-Pfad nicht,
--- solange die Karte offen ist. Die bestehenden Controller-UI-Bindings werden
--- hier gezielt an denselben RunBinding-Pfad weitergereicht.
+-- In Vanilla, WorldMapFrame intercepts all key presses and normally forwards
+-- only TOGGLEWORLDMAP and SCREENSHOT. Our map/quest-log binding therefore does
+-- not reach the normal binding path while the map is open. The existing
+-- controller UI bindings are forwarded to the same RunBinding path here.
 local originalWorldMapOnKeyDown = WorldMapFrame and WorldMapFrame:GetScript("OnKeyDown")
 if WorldMapFrame then
     local worldMapControllerActions = {
@@ -848,8 +851,8 @@ local function PositionLootFrameAtCursor()
         return
     end
 
-    -- GetCursorPosition liefert physische Pixel. Frame-Anker relativ zu
-    -- UIParent erwarten dagegen dessen skalierte UI-Koordinaten.
+    -- GetCursorPosition returns physical pixels, while frame anchors relative
+    -- to UIParent expect its scaled UI coordinates.
     local cursorX, cursorY = GetCursorPosition()
     cursorX = cursorX / parentScale
     cursorY = cursorY / parentScale
@@ -869,8 +872,8 @@ local function PositionLootFrameAtCursor()
         bottom = cursorY + offset
     end
 
-    -- Auch bei extremen Cursorpositionen und kleinen Aufloesungen bleibt das
-    -- komplette Fenster innerhalb von UIParent.
+    -- Keep the entire window inside UIParent even at extreme cursor positions
+    -- and low resolutions.
     left = math.max(0, math.min(left, math.max(0, parentWidth - visibleWidth)))
     bottom = math.max(0, math.min(bottom, math.max(0, parentHeight - visibleHeight)))
 
@@ -962,9 +965,9 @@ local function TrackNewlyAcceptedQuest()
     end
 end
 
--- Vanilla 1.12.1 besitzt kein QUEST_ACCEPTED-Event. Die originale
--- AcceptQuest-Funktion bleibt der Ausloeser; QUEST_LOG_UPDATE liefert danach
--- den echten Questlog-Index fuer AddQuestWatch.
+-- Vanilla 1.12.1 has no QUEST_ACCEPTED event. The original AcceptQuest function
+-- remains the trigger; QUEST_LOG_UPDATE then supplies the actual quest-log
+-- index for AddQuestWatch.
 local original_AcceptQuest = AcceptQuest
 if original_AcceptQuest then
     function AcceptQuest()
@@ -1421,7 +1424,7 @@ end
 
 local function PrintStatus()
     Print("Controller " .. OnOff(DinoControllerDB.controllerEnabled) ..
-        ", Fadenkreuz " .. OnOff(DinoControllerDB.showReticle) ..
+        ", Reticle " .. OnOff(DinoControllerDB.showReticle) ..
         ", UI " .. OnOff(DinoControllerDB.uiEnabled) ..
         ", AutoQuest " .. OnOff(DinoControllerDB.autoQuest) ..
         ", AutoLoot " .. OnOff(DinoControllerDB.autoLoot) ..
@@ -1441,6 +1444,8 @@ SlashCmdList["DINOCONTROLLER"] = function(message)
         Print("Camera settings reapplied.")
     elseif command == "bind" or command == "bindings" then
         InstallBindings(true)
+    -- German command/value aliases are retained internally for backward
+    -- compatibility with existing macros and are not listed in player help.
     elseif command == "reticle" or command == "fadenkreuz" then
         if value == "" then
             DinoControllerDB.showReticle = DinoControllerDB.showReticle == 1 and 0 or 1
@@ -1449,7 +1454,7 @@ SlashCmdList["DINOCONTROLLER"] = function(message)
         else
             SetOption("showReticle", value)
         end
-        Print("Fadenkreuz " .. OnOff(DinoControllerDB.showReticle) .. ".")
+        Print("Reticle " .. OnOff(DinoControllerDB.showReticle) .. ".")
     elseif command == "ui" then
         if value == "" then
             DinoControllerDB.uiEnabled = DinoControllerDB.uiEnabled == 1 and 0 or 1
@@ -1535,8 +1540,8 @@ frame:SetScript("OnEvent", function()
             DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00DinoController: /dino opens the settings menu|r")
         end
         InstallBindings(false)
-        -- Den gespeicherten A/B-Schalter bei jedem Login erneut anwenden,
-        -- auch wenn sich die Binding-Version nicht geaendert hat.
+        -- Reapply the saved A/B toggle at every login, even when the binding
+        -- version has not changed.
         DinoController_RefreshPrimaryAction()
         DinoController_ApplyButtonLayout(nil)
         DinoController_ApplyTargetMode(nil)

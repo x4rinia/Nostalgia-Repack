@@ -1,4 +1,4 @@
--- XBot - kleine Steuerzentrale fuer die .x-Befehle von Nostalgia
+-- XBot - compact control panel for Nostalgia's .x commands
 
 XBotDB = XBotDB or {}
 
@@ -6,8 +6,8 @@ local PANEL_WIDTH = 320
 local PANEL_HEIGHT = 180
 
 local function SendCommand(command)
-    -- Den Befehl ueber das normale Chatfenster senden, damit er wie ein
-    -- manuell geschriebener .x-Befehl beim Server ankommt.
+    -- Send the command through the normal chat edit box so the server receives
+    -- it exactly like a manually entered .x command.
     if ChatFrameEditBox then
         ChatFrameEditBox:SetText(command)
         ChatEdit_SendText(ChatFrameEditBox)
@@ -114,10 +114,10 @@ local function CreateButton(label, tooltip, command, width, x, y, r, g, b)
     return button
 end
 
--- Reihe 1: sofortige Kampfsteuerung
+-- Row 1: immediate combat control
 CreateButton("ATTACK", "All bots attack your current target.  (.x attack)", ".x attack", 296, 12, -44, 0.52, 0.10, 0.10)
 
--- Reihe 2: Rollen und Flaechenschaden
+-- Row 2: roles and area damage
 CreateButton("TANK", "Adds a tank bot.  (.x tank)", ".x tank", 68, 12, -74, 0.19, 0.30, 0.58)
 CreateButton("HEALER", "Adds a healer bot.  (.x heal)", ".x heal", 68, 84, -74, 0.20, 0.48, 0.28)
 CreateButton("DPS", "Adds a DPS bot.  (.x dps)", ".x dps", 68, 156, -74, 0.52, 0.29, 0.10)
@@ -159,13 +159,13 @@ CreateButton("REVIVE", "Bots revive fallen party members.  (.x rezz)", ".x rezz"
 
 local ccMarks = {
     { icon = 1, label = "Star", command = "star" },
-    { icon = 2, label = "Kreis", command = "circle" },
-    { icon = 3, label = "Diamant", command = "diamond" },
-    { icon = 4, label = "Dreieck", command = "triangle" },
-    { icon = 5, label = "Mond", command = "moon" },
-    { icon = 6, label = "Quadrat", command = "square" },
-    { icon = 7, label = "Kreuz", command = "cross" },
-    { icon = 8, label = "Totenkopf", command = "skull" }
+    { icon = 2, label = "Circle", command = "circle" },
+    { icon = 3, label = "Diamond", command = "diamond" },
+    { icon = 4, label = "Triangle", command = "triangle" },
+    { icon = 5, label = "Moon", command = "moon" },
+    { icon = 6, label = "Square", command = "square" },
+    { icon = 7, label = "Cross", command = "cross" },
+    { icon = 8, label = "Skull", command = "skull" }
 }
 local ccIndex = 1
 local ccButton
@@ -218,9 +218,8 @@ local function ToggleWindow()
     end
 end
 
--- Verschiebbarer Zugang am Minimap-Rand.  Der Winkel wird in XBotDB
--- gespeichert, damit die Schaltflaeche beim naechsten Einloggen an derselben
--- Stelle sitzt.
+-- Draggable access button on the minimap edge. Its angle is stored in XBotDB
+-- so the button remains in the same position after the next login.
 local minimapButton = CreateFrame("Button", "XBotMinimapButton", Minimap)
 minimapButton:SetWidth(24)
 minimapButton:SetHeight(24)

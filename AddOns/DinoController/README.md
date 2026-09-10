@@ -9,3 +9,8 @@ Controller and HUD support for World of Warcraft 1.12.1.
 - DinoMacroManager action-bar macros can be triggered from controller-managed action slots.
 
 No SavedVariables are included. Settings are created locally in the user's own client.
+
+Localization note: German spell-name aliases, legacy SavedVariable layout values,
+and legacy German `/dino` aliases remain as internal compatibility identifiers.
+They are required for German-client detection or existing user macros/settings and
+are never presented as English-release UI text.

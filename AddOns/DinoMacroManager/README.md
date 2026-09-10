@@ -10,3 +10,7 @@ Spell-chain manager for World of Warcraft 1.12.1. Open it with `/dmm`.
 - Key bindings are available under `Key Bindings > DinoMacroManager`.
 
 The AddOn keeps its SavedVariables in the user's own client; no personal settings are shipped here.
+
+Localization note: German power-type words remain only in the internal tooltip
+parser so spells can also be recognized on a deDE client. These parser patterns
+are never displayed to the player.

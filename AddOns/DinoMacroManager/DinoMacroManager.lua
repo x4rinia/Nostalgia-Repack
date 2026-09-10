@@ -1,4 +1,4 @@
--- DinoMacroManager 1.1.5 - eigenstaendiges WoW-1.12.1-Addon
+-- DinoMacroManager 1.1.5 - standalone WoW 1.12.1 AddOn
 -- Author: Nostalgia Team
 
 BINDING_HEADER_DINOMACROMANAGER = "DinoMacroManager";
@@ -182,7 +182,7 @@ function DMM.NewBotAttackEntry()
     return {
         kind = "command",
         command = "BOTATTACK",
-        name = "Bot: Angreifen (.x attack)",
+        name = "Bot: Attack (.x attack)",
         rank = "",
         icon = DMM.BOT_ATTACK_ICON
     };
@@ -462,7 +462,7 @@ function DMM.UpdateEditorFields()
         if spell then
             field.icon:SetTexture(spell.icon or DMM.QUESTION_ICON);
             field.icon:SetVertexColor(1, 1, 1);
-            local label = spell.name or "Unbekannt";
+            local label = spell.name or "Unknown";
             if spell.rank and spell.rank ~= "" then
                 label = label .. " (" .. spell.rank .. ")";
             end
@@ -502,7 +502,7 @@ function DMM.InsertBotAttack(index)
     end
     DMM.editorSpells[index] = DMM.NewBotAttackEntry();
     DMM.UpdateEditorFields();
-    DMM.SetEditorStatus("Bot: Angreifen (.x attack) added (not saved yet).", nil);
+    DMM.SetEditorStatus("Bot: Attack (.x attack) added (not saved yet).", nil);
 end
 
 function DMM.RemoveEditorSpell(index)
@@ -621,7 +621,7 @@ function DMM.SaveEditor()
     slot.lastUsed = nil;
     slot.invalid = nil;
     DMM.UpdateAllSlots();
-    DMM.SetStatus("Slot " .. DMM.editorSlot .. " gespeichert.", nil);
+    DMM.SetStatus("Slot " .. DMM.editorSlot .. " saved.", nil);
     DMM.editorFrame:Hide();
 end
 
@@ -744,7 +744,7 @@ function DMM.EditorHasUnsavedChanges()
 end
 
 -- =========================================================================
--- Oeffentliche API-Funktionen fuer Integrationen (DinoControllerHUD etc.)
+-- Public API functions for integrations such as DinoControllerHUD.
 -- =========================================================================
 
 function DinoMacroManager_GetSlotFromAction(actionSlot)
@@ -771,6 +771,8 @@ function DinoMacroManager_GetSlotCurrentSpell(slotIndex)
 end
 
 function DMM.GetSpellResourceCost(bookIndex, bookType)
+    -- German power-type words intentionally remain in these patterns so the
+    -- deDE client tooltip can be parsed. They are internal and never displayed.
     if not DMM.scannerTooltip then
         DMM.scannerTooltip = CreateFrame("GameTooltip", "DMMScanTooltip", UIParent, "GameTooltipTemplate");
         DMM.scannerTooltip:SetOwner(UIParent, "ANCHOR_NONE");
@@ -1073,8 +1075,8 @@ function DinoMacroManager_TriggerSlot(index)
         end
         return;
     end
-    -- DinoController kapselt CastSpellByName global. Bei aktivierter
-    -- Bodenzauber-Automatik nutzt DMM dadurch exakt denselben Target-Cast-Pfad.
+    -- DinoController wraps CastSpellByName globally. With automatic ground
+    -- spells enabled, DMM therefore uses exactly the same target-cast path.
     local _, groundResult = CastSpellByName(castName)
     if groundResult == "no_target" then
         DMM.pendingCast = nil;
@@ -1302,7 +1304,7 @@ function DMM.CreateEditor()
     clear:SetWidth(72);
     clear:SetHeight(24);
     clear:SetPoint("LEFT", save, "RIGHT", 8, 0);
-    clear:SetText("Emptyen");
+    clear:SetText("Clear");
     clear:SetScript("OnClick", DMM.ClearEditorSlot);
 
     local actionBar = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate");

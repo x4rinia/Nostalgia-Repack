@@ -1,8 +1,7 @@
--- DinoController Phase 2.5 - aufloesungsunabhaengige Controller-Navigation
+-- DinoController Phase 2.5 - resolution-independent controller navigation
 -- Author: Nostalgia Team
--- fuer originale Vanilla-Frames. Es werden ausschliesslich echte, sichtbare
--- WoW-Buttons aus FrameXML angesprochen; feste Bildschirmkoordinaten gibt es
--- nicht.
+-- for original Vanilla frames. It addresses only real, visible WoW buttons
+-- from FrameXML and does not use fixed screen coordinates.
 
 local UI_SCAN_INTERVAL = 0.08
 
@@ -614,9 +613,9 @@ local function ActivateLootButton(button)
     if not slot or slot < 1 or slot > GetNumLootItems() then return nil end
     if not LootSlotIsItem(slot) and not LootSlotIsCoin(slot) then return nil end
 
-    -- Der originale Vanilla-OnClick-Pfad merkt sich Button und Slot, bevor
-    -- LootSlot ausgefuehrt wird. Diesen Zustand setzen wir explizit, damit
-    -- Controller-Confirm exakt denselben markierten Slot aktiviert.
+    -- The original Vanilla OnClick path records the button and slot before
+    -- running LootSlot. Set that state explicitly so controller Confirm
+    -- activates exactly the same highlighted slot.
     button.slot = slot
     LootFrame.selectedLootButton = button:GetName()
     LootFrame.selectedSlot = slot
@@ -910,8 +909,8 @@ local function AddTaxi(elements)
     for index = 1, numNodes do
         local button = getglobal("TaxiButton" .. index)
         local nodeIndex = button and button.GetID and button:GetID()
-        -- Vanilla zeigt CURRENT, REACHABLE und DISTANT mit denselben nativen
-        -- Buttons an; nur REACHABLE ist ein tatsaechliches Flugziel.
+        -- Vanilla displays CURRENT, REACHABLE, and DISTANT with the same native
+        -- buttons; only REACHABLE is an actual flight destination.
         if nodeIndex and UsableButton(button) and TaxiNodeGetType and
            TaxiNodeGetType(nodeIndex) == "REACHABLE" then
             table.insert(elements, {
@@ -1450,11 +1449,10 @@ UpdateHighlight = function()
     highlight:Show()
 
     if state.context == "loot" and LootFrame then
-        -- Lua kann den Windows-Cursor in Vanilla nicht bewegen. Deshalb wird
-        -- der aktuell markierte Originalbutton exakt unter die Mitte von
-        -- UIParent gelegt. UIParent:GetCenter() benutzt denselben skalierten
-        -- Koordinatenraum wie Frame:GetCenter() und funktioniert daher auch
-        -- bei abweichender UI-Skalierung.
+        -- Lua cannot move the Windows cursor in Vanilla. Move the currently
+        -- highlighted original button exactly under the center of UIParent.
+        -- UIParent:GetCenter() uses the same scaled coordinate space as
+        -- Frame:GetCenter(), so this also works with a non-default UI scale.
         local buttonX, buttonY = element.frame:GetCenter()
         local rootX, rootY = UIParent:GetCenter()
         local frameLeft, frameBottom = LootFrame:GetLeft(), LootFrame:GetBottom()
